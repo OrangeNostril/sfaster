@@ -36,12 +36,12 @@ Sfaster doesn't have some of the more niche flags in sfinder yet, but it current
 * Multithreading (should increase the speed significantly)
 * Version for people without G++ (or version that doesn't need to recompile every time)
 * Version to run many boards back to back (eg: every page in fumen)
-* Custom output destination (-o)
+* Custom output destination (`-o`)
 #### Coming later:
 * Faster setup (ie: new non-python version of run_sfaster)
 * Specify kicktables (beyond 180 toggle)
 * Option to keep minos in initial board from turning gray in outputs
-* Glued solutions (-s)
+* Glued solutions (`-s`)
 * Faster fumenify (or option to output directly as fumens)
-* Specify input fumen page (-P)
-* Specify multiple patterns (; operator in -p)
+* Specify input fumen page (`-P`)
+* Specify multiple patterns (`;` operator in `-p`)
