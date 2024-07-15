@@ -43,7 +43,6 @@ if not args.patterns:
     pattern="*p1"*(5*lines//2 + 3)
 else:
     pattern = args.patterns
-print(pattern)#
 
 hold = "false" if args.hold=="avoid" else "true"
 glue = "true" if args.split=="yes" else "false"
