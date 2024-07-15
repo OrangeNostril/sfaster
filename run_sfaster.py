@@ -60,15 +60,16 @@ def parseInputBoard(inputBoard:str,lines:int)->str:
         inputBoard="".join(["_"]*(10*lines-len(inputBoard)))+inputBoard
     return inputBoard
 
-parser = argparse.ArgumentParser(description='Process some arguments.')
+parser = argparse.ArgumentParser(description="Sfaster flags")
 
-parser.add_argument('inputBoard', nargs='?', default='', help='Input board string')
-parser.add_argument('-t', '--tetfu', help='Input board string')
-parser.add_argument('-c', '--clear-line', type=int, choices=range(1,11), default=4, help='Number of lines to clear (1-10)')
-parser.add_argument('-H', '--hold', choices=['avoid', 'use'], default="use",help='Hold piece preference')
-parser.add_argument('-p', '--patterns', type=parsePattern, help='Pattern string to parse')
-parser.add_argument('-s', '--split', choices=['yes', 'no'], default="yes", help='Split preference')
-parser.add_argument('-d', '--drop', choices=['jstris180', 'tetrio180','soft','softdrop'], default="soft", help='Specify movement abilities')
+parser.add_argument("inputBoard", nargs="?", default="", help="Input board string")
+parser.add_argument("-t", "--tetfu", help="Input board string")
+parser.add_argument("-c", "--clear-line", type=int, choices=range(1,11), default=4, help="Number of lines to clear (1-10)")
+parser.add_argument("-H", "--hold", choices=["avoid", "use"], default="use",help="Hold piece preference")
+parser.add_argument("-p", "--patterns", type=parsePattern, help="Pattern string to parse")
+parser.add_argument("-s", "--split", choices=["yes", "no"], default="yes", help="Split preference")
+parser.add_argument("-d", "--drop", choices=["jstris180", "tetrio180","soft","softdrop"], default="soft", help="Specify movement abilities")
+parser.add_argument("-F", "--format-solution", choices=["fumen", "string", "str"], default="fumen", help="Format of each solution")
 
 args = parser.parse_args()
 
@@ -87,6 +88,7 @@ else:
 
 hold = "false" if args.hold=="avoid" else "true"
 glue = "true" if args.split=="yes" else "false"
+convertToFumen = "true" if args.format_solution=="fumen" else "false"
 
 load180Kicks = "" if args.drop[:4]=="soft" else "-Dload180Kicks="+args.drop#leaving it out entirely if not specified
 

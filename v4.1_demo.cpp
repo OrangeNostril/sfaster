@@ -44,6 +44,10 @@ unsigned long long debugCounter=0;
 
 //#define load180Kicks
 
+#ifndef convertToFumen
+#define convertToFumen true
+#endif
+
 struct bitmap{
     unsigned long long val[2];
     bitmap() {}
@@ -153,6 +157,45 @@ void printMatrix(bitmap matrix, char rowN=maxLines) {
     }//key: | = (empty) wall space, - = empty space, X = filled space, # = exceeds max size (unknown)
 }
 std::ofstream outFile;
+void writeFumen(std::string solStr){//converts str to fumen and writes to file
+    static const std::map<char,char> pieceNum = {{'_',8},{'I',9},{'L',10},{'O',11},{'Z',12},{'T',13},{'J',14},{'S',15},{'X',16}};//unique to fumen
+    //static const std::map<char,char> pieceNum = {{'_',8},{'Z',9},{'L',10},{'O',11},{'S',12},{'I',13},{'J',14},{'T',15},{'X',16}};//unique to fumen
+    //block number, number in a row -1
+    std::vector<std::array<int,2>> data;
+    data.push_back(std::array<int,2>{8,229-(int)solStr.size()});//empty rows before solution
+    for (char c:solStr){
+        int mapped=pieceNum.at(c);
+        if (mapped==data.back()[0]) data.back()[1]++;
+        else data.push_back(std::array<int,2>{mapped,0});
+    }
+    if (data.back()[0]==8) data.back()[1]+=10;//extra empty row at end
+    else data.push_back(std::array<int,2>{8,9});
+
+    static const std::array<std::string,64> code = {"A","B","C","D","E","F","G","H","I","J","K","L","M","N","O","P","Q","R","S","T","U","V","W","X","Y","Z","a","b","c","d","e","f","g","h","i","j","k","l","m","n","o","p","q","r","s","t","u","v","w","x","y","z","0","1","2","3","4","5","6","7","8","9","+","/"}; 
+    std::string outFumen = "v115@";
+    int count=5;//need to insert a ? every 47 chars i guess
+    for (auto& d : data){
+        int num = 240*d[0]+d[1];
+        outFumen.append(code[num&0x3F]);//%64
+        if (outFumen.size()%47==0) outFumen.append("?");
+        outFumen.append(code[num>>6]);// /64
+        if (outFumen.size()%47==0) outFumen.append("?");
+    }
+    //outFumen.append("AgH");//using the right piece color system
+    outFumen.append("A");
+    if (outFumen.size()%47==0) outFumen.append("?");
+    outFumen.append("g");
+    if (outFumen.size()%47==0) outFumen.append("?");
+    outFumen.append("H");
+    if (outFumen.size()%47==0) outFumen.append("?");//fumen website does this
+
+    if (outFile.is_open()){
+        outFile << outFumen << '\n';
+    }
+    else{
+        throw std::runtime_error("Error writing to output file.");
+    }
+}
 void writeSolution(std::vector<piece>& pieceList){//stringifies and writes one solution to file
     std::string solStr(10*maxLines,'X');
     constexpr char key[7] = {'I','J','L','O','S','T','Z'};
@@ -166,12 +209,16 @@ void writeSolution(std::vector<piece>& pieceList){//stringifies and writes one s
             }
         }
     }
-    //std::cout<<solStr<<'\n';//
-    if (outFile.is_open()){
-        outFile << solStr << '\n';
+    if (convertToFumen){
+        writeFumen(solStr);
     }
     else{
-        throw std::runtime_error("Error writing to output file.");
+        if (outFile.is_open()){
+            outFile << solStr << '\n';
+        }
+        else{
+            throw std::runtime_error("Error writing to output file.");
+        }
     }
 }
 bitmap rotations[7][4]={{0x3c00000llu,0x801002004llu,0x7800llu,0x400801002llu},{0x403800llu,0x1801002llu,0x3804llu,0x801003llu},{0x1003800llu,0x801006llu,0x3801llu,0xc01002llu},{0x1803000llu,0x1803000llu,0x1803000llu,0x1803000llu},{0x1801800llu,0x803004llu,0x3003llu,0x401802llu},{0x803800llu,0x803002llu,0x3802llu,0x801802llu},{0xc03000llu,0x1003002llu,0x1806llu,0x801801llu}};

@@ -14,14 +14,15 @@ If no argument is provided (or the program is run from `run_sfaster.py` directly
 
 If no argument is provided and `input.txt` is blank, an empty board will be used by default.
 
-While the program is running, every solution will be written as a string to `output.txt` as it is found. Keep in mind that the output file can get very large if a large number of solutions are found. To convert the solutions to fumens, run `strings_to_fumens.py` and your converted solutions will be written to `output_fumens.txt`, but know that this tool can be very slow when converting large solution sets (this tool will be replaced and automated soon).
+While the program is running, every solution will be written to `output.txt` as it is found. By default, the solutions will be written as fumens, but to have solutions printed as strings, add `-F string` to your command. Keep in mind that the output file can get very large if a large number of solutions are found.
 
-Sfaster doesn't have some of the more niche flags in sfinder yet, but it currently implements the most common ones:
+Sfaster doesn't have some of the more niche flags in sfinder yet, but it currently implements the most common ones, with some changes:
 * `-p`, `--patterns` Piece order restrictions. If no pattern is specified, piece restrictions will not be considered.
 * `-c`, `--clear-line` Number of lines to clear. Defaults to 4.
 * `-H`, `--hold` Whether to allow hold to be used. Specify `use` to allow, or `avoid` to disallow. Defaults to `use`.
 * `-d`, `--drop` Specify movement abilities (ie: enable 180 spins). Currently, the options are `soft` (or `softdrop`), `jstris180`, or `tetris180`. To enable 180 spins with the 180 kick table for either jstris or tetr.io, choose `jstris180` or `tetrio180`, respectively.
     * Warning: the 180 kicktables use the same logic as the other kicktables, but they haven't been thoroughly tested yet.
+* `-F`, `--format-solution` Unique to sfaster, specify whether solutions should be written as fumens or strings. Choose `fumen` or `string`, defaults to `fumen`.
 
 ### NEW AND UPCOMING FEATURES
 #### New features:
@@ -32,7 +33,6 @@ Sfaster doesn't have some of the more niche flags in sfinder yet, but it current
 * Command line flags (like `-t`, `-c`)
 * Option to enable 180 spins with either the jstris or tetrio kicktables
 #### Coming soon:
-* Faster/automatic fumen conversion
 * Multithreading (should increase the speed significantly)
 * Version for people without G++ (or version that doesn't need to recompile every time)
 * Version to run many boards back to back (eg: every page in fumen)
