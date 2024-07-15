@@ -30,6 +30,7 @@ Sfaster doesn't have some of the more niche flags in sfinder yet, but it current
 * Piece restrictions
 * Variable-height PCs (not just 4L)
 * Allow hold (--hold use)
+* Option to output fumens instead of strings
 * Command line flags (like `-t`, `-c`)
 * Option to enable 180 spins with either the jstris or tetrio kicktables
 #### Coming soon:
