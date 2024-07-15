@@ -1,20 +1,25 @@
 import argparse
-from py_fumen.decoder import decode
 import subprocess
 
 def parseInputBoard(inputBoard:str,lines:int)->str:
     if (inputBoard==''):
         with open("input.txt") as file:#read from input.txt
             inputBoard=file.read()
-        if (inputBoard==''):#needed?
-            inputBoard="v115@vhAAgH"
     if ("v115" in inputBoard):#fumen to string
-        inputBoard = decode(inputBoard)[0].get_field().string()[:-11]#doesn't do glued inputs (for now)
-    inputBoard=inputBoard.replace("\n","")#remove \n
+        try:#try using py_fumen_py first
+            from py_fumen_py import decode
+            inputBoard = decode(inputBoard)[0].field.string()[:-11]#only gets first page (for now)
+        except ModuleNotFoundError:
+            try:#try using py_fumen as a backup
+                from py_fumen.decoder import decode
+                inputBoard = decode(inputBoard)[0].get_field().string()[:-11]
+            except ModuleNotFoundError:
+                raise Exception("Please install either py_fumen or py_fumen_py before inputting fumens")
+    inputBoard=inputBoard.replace("\n","")#remove line breaks
     if (len(inputBoard)%10!=0):
-        raise args.argumentParseError("Please ensure your board has a multiple of 10 spaces in it.")
+        raise args.argumentParseError("Please ensure your board has a multiple of 10 spaces in it")
 
-    if (len(inputBoard)<lines*10):
+    if (len(inputBoard)<lines*10):#(probably?) needed because inputs are vertically flipped for v4
         inputBoard="".join(["_"]*(10*lines-len(inputBoard)))+inputBoard
     return inputBoard
 
