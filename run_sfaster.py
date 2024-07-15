@@ -62,24 +62,23 @@ for i in range(len(inputBoard)):
     if (inputBoard[i]!='_'):
         bitmap|=1<<i<<(i//10)
 print("Bitmap created\nCompiling finder...")#
-#print("g++", "v4.1_demo.cpp", f"-DmaxLines={lines}", f"-Dboard=bitmap({bitmap&0xFFFFFFFFFFFFFFFF}llu,{bitmap>>64}llu)", "-O3", "-o", "v4")
 if (load180Kicks!=""):
-    output=subprocess.run(["g++", "v4.1_demo.cpp", f"-DmaxLines={lines}", f"-Dboard=bitmap({bitmap&0xFFFFFFFFFFFFFFFF}llu,{bitmap>>64}llu)", f"-DpatternStr=\"{pattern}\"", f"-DallowHold={hold}", f"-Dglue={glue}", load180Kicks, "-O3", "-o", "v4"],shell=True,capture_output=True)
+    output=subprocess.run(["g++", "v4.1_demo.cpp", f"-DmaxLines={lines}", f"-Dboard=bitmap({bitmap&0xFFFFFFFFFFFFFFFF}llu,{bitmap>>64}llu)", f"-DpatternStr=\"{pattern}\"", f"-DallowHold={hold}", f"-Dglue={glue}", load180Kicks, "-O3", "-std=c++11", "-o", "v4"],capture_output=True)
 else:
-    output=subprocess.run(["g++", "v4.1_demo.cpp", f"-DmaxLines={lines}", f"-Dboard=bitmap({bitmap&0xFFFFFFFFFFFFFFFF}llu,{bitmap>>64}llu)", f"-DpatternStr=\"{pattern}\"", f"-DallowHold={hold}", f"-Dglue={glue}", "-O3", "-o", "v4"],shell=True,capture_output=True)
+    output=subprocess.run(["g++", "v4.1_demo.cpp", f"-DmaxLines={lines}", f"-Dboard=bitmap({bitmap&0xFFFFFFFFFFFFFFFF}llu,{bitmap>>64}llu)", f"-DpatternStr=\"{pattern}\"", f"-DallowHold={hold}", f"-Dglue={glue}", "-O3", "-std=c++11", "-o", "v4"],capture_output=True)
 if (output.stderr!=b''):
     raise Exception("Compilation error:\n\t"+output.stderr.decode())
 
 print("Finished compiling, running...")#
-output=subprocess.run(["v4"],shell=True,capture_output=True)
+output=subprocess.run(["./v4"],capture_output=True)
 #input(output.stdout.decode()+"\n")#debug
 if (output.stderr!=b''):
     raise Exception("Program error:\n\t"+output.stderr.decode())
 
-data=str(output.stdout).split('\\r\\n')
-seconds=int(data[0][2:-3])/1e6
+data=output.stdout.decode().split('\n')
+seconds=int(data[0][:-3])/1e6
 solutions=format(int(data[1].split(" ")[0]),",")
-if (seconds//60):#show minutes
+if (seconds>=60):#show minutes
     print(f"Found {solutions} solutions in {int(seconds//60)}:{round(seconds%60):02}s")
 else:
     print(f"Found {solutions} solutions in {seconds%60} seconds")
