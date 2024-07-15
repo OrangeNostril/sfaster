@@ -1,48 +1,6 @@
 import argparse
 from py_fumen.decoder import decode
-from py_fumen.field import Field, create_inner_field
-from py_fumen.page import Page
 import subprocess
-
-def parsePattern(pattern:str) -> str:#DEFINITELY not optimal, though it's a good template for when I eventually redo this in C++
-    pieceBits = {c: 1<<i for i, c in enumerate("IJLOSTZ")}  #each character is given a unique bit
-    pattern = pattern.replace("!","p7").replace("*","[IJLOSTZ]").replace(",","")
-    patternNodes = []
-    nodeMap=0
-    inBrackets = False
-    i=0
-    while i<len(pattern):
-        c=pattern[i]
-        if c in "IJLOSTZ":
-            if not inBrackets:
-                patternNodes.append((pieceBits[c],1))
-            elif ((nodeMap&pieceBits[c])):
-                raise Exception("Error: Duplicate pieces in brackets in pattern input")
-            else:
-                nodeMap|=pieceBits[c]
-        elif c=="[":
-            if inBrackets:#no nested brackets allowed
-                raise Exception("Error: Nested brackets in pattern input")
-            inBrackets=True
-        elif c=="]":
-            if not inBrackets:#unmatched right bracket
-                raise Exception("Error: Unmatched right bracket in pattern input")
-            if (i+1>=len(pattern) or pattern[i+1]!='p'):
-                patternNodes.append((nodeMap,1))#no p# defaults to 1
-            elif i+2>=len(pattern) or pattern[i+1]!='p' or pattern[i+2] not in "01234567" or (i+3<len(pattern) and pattern[i+3] in "0123456789"):#correct format eg: [TLOZ]p4 (number after p must be 0-7)
-                raise Exception("Error: Missing or invalid pick number in pattern input")
-            else:
-                if (pattern[i+2]!='0'):
-                    patternNodes.append((nodeMap,int(pattern[i+2])))
-                i+=2
-            nodeMap=0#reset for next time its used
-            inBrackets=False
-        else:
-            raise Exception("Error: Unexpected or out of place character in pattern input")
-        i+=1
-    if inBrackets:#unmatched left bracket
-        raise Exception("Error: unmatched left bracket in pattern input")
-    return "{"+",".join(f"patternNode({node[0]},{node[1]})" for node in patternNodes)+"}"
 
 def parseInputBoard(inputBoard:str,lines:int)->str:
     if (inputBoard==''):
@@ -66,7 +24,7 @@ parser.add_argument("inputBoard", nargs="?", default="", help="Input board strin
 parser.add_argument("-t", "--tetfu", help="Input board string")
 parser.add_argument("-c", "--clear-line", type=int, choices=range(1,11), default=4, help="Number of lines to clear (1-10)")
 parser.add_argument("-H", "--hold", choices=["avoid", "use"], default="use",help="Hold piece preference")
-parser.add_argument("-p", "--patterns", type=parsePattern, help="Pattern string to parse")
+parser.add_argument("-p", "--patterns", type=str, help="Pattern string to parse")
 parser.add_argument("-s", "--split", choices=["yes", "no"], default="yes", help="Split preference")
 parser.add_argument("-d", "--drop", choices=["jstris180", "tetrio180","soft","softdrop"], default="soft", help="Specify movement abilities")
 parser.add_argument("-F", "--format-solution", choices=["fumen", "string", "str"], default="fumen", help="Format of each solution")
@@ -82,9 +40,10 @@ else:
 inputBoard = parseInputBoard(inputBoard,lines)
 
 if not args.patterns:
-    pattern=",".join(["patternNode(127,1)"]*(5*lines//2 + 3))#aka *p1*p1*p1*p1...
+    pattern="*p1"*(5*lines//2 + 3)
 else:
     pattern = args.patterns
+print(pattern)#
 
 hold = "false" if args.hold=="avoid" else "true"
 glue = "true" if args.split=="yes" else "false"
@@ -105,9 +64,9 @@ for i in range(len(inputBoard)):
 print("Bitmap created\nCompiling finder...")#
 #print("g++", "v4.1_demo.cpp", f"-DmaxLines={lines}", f"-Dboard=bitmap({bitmap&0xFFFFFFFFFFFFFFFF}llu,{bitmap>>64}llu)", "-O3", "-o", "v4")
 if (load180Kicks!=""):
-    output=subprocess.run(["g++", "v4.1_demo.cpp", f"-DmaxLines={lines}", f"-Dboard=bitmap({bitmap&0xFFFFFFFFFFFFFFFF}llu,{bitmap>>64}llu)", f"-DinputPattern={pattern}", f"-DallowHold={hold}", f"-Dglue={glue}", load180Kicks, "-O3", "-o", "v4"],shell=True,capture_output=True)
+    output=subprocess.run(["g++", "v4.1_demo.cpp", f"-DmaxLines={lines}", f"-Dboard=bitmap({bitmap&0xFFFFFFFFFFFFFFFF}llu,{bitmap>>64}llu)", f"-DpatternStr=\"{pattern}\"", f"-DallowHold={hold}", f"-Dglue={glue}", load180Kicks, "-O3", "-o", "v4"],shell=True,capture_output=True)
 else:
-    output=subprocess.run(["g++", "v4.1_demo.cpp", f"-DmaxLines={lines}", f"-Dboard=bitmap({bitmap&0xFFFFFFFFFFFFFFFF}llu,{bitmap>>64}llu)", f"-DinputPattern={pattern}", f"-DallowHold={hold}", f"-Dglue={glue}", "-O3", "-o", "v4"],shell=True,capture_output=True)
+    output=subprocess.run(["g++", "v4.1_demo.cpp", f"-DmaxLines={lines}", f"-Dboard=bitmap({bitmap&0xFFFFFFFFFFFFFFFF}llu,{bitmap>>64}llu)", f"-DpatternStr=\"{pattern}\"", f"-DallowHold={hold}", f"-Dglue={glue}", "-O3", "-o", "v4"],shell=True,capture_output=True)
 if (output.stderr!=b''):
     raise Exception("Compilation error:\n\t"+output.stderr.decode())
 

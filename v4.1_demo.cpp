@@ -30,8 +30,8 @@ unsigned long long debugCounter=0;
 #define playfield bitmap((-1ll)<<(11*maxLines)|(0x80100200400801llu<<10) , (unsigned long long)-1ll)
 #endif
 
-#ifndef inputPattern
-#define inputPattern {patternNode(-1,1),patternNode(-1,1),patternNode(-1,1),patternNode(-1,1),patternNode(-1,1),patternNode(-1,1),patternNode(-1,1),patternNode(-1,1),patternNode(-1,1),patternNode(-1,1),patternNode(-1,1),patternNode(-1,1),patternNode(-1,1),patternNode(-1,1),patternNode(-1,1)}//not very elegant
+#ifndef patternStr
+#define patternStr "*!*!*!*!*!*!*!*!*!*!*!*!*!*!*!*!*!*!*!"//std::vector<patternNode>{patternNode(-1,1),patternNode(-1,1),patternNode(-1,1),patternNode(-1,1),patternNode(-1,1),patternNode(-1,1),patternNode(-1,1),patternNode(-1,1),patternNode(-1,1),patternNode(-1,1),patternNode(-1,1),patternNode(-1,1),patternNode(-1,1),patternNode(-1,1),patternNode(-1,1)}//not very elegant
 #endif
 
 #ifndef allowHold
@@ -432,8 +432,9 @@ struct patternNode{
     int pick;
     patternNode(int f, int p) : from(f), pick(p) {};
 };
+std::vector<patternNode> inputPattern;//set at the start of the program
 //note: maybe in the future, it->second.mat can be a map of mats for different combinations of line clears
-//bigger note: rn placedMapDP is interfering with bags (leaving out some solutions)
+//bigger note: rn placedMapDP is interfering with bags (leaving out some solutions) so i just stopped using it
 bool findPath(std::map<int,piece>& solution, bitmap matrix, int clearedRows, unsigned long long placedMap, std::set<unsigned long long>& placedMapDP, const std::vector<patternNode>::iterator& pattern,const std::vector<patternNode>::iterator& hold){
     //if (placedMapDP.find(placedMap)!=placedMapDP.end()) return false;//already tried combination
     if (placedMap==(1llu<<solution.size())-1) return true;//if all pieces placed
@@ -495,7 +496,6 @@ bool findPath(std::map<int,piece>& solution, bitmap matrix, int clearedRows, uns
         if (unplace(piece,srsRot,pos+startShifts[it->second.id&0x3FF][0],matrix)
             || (startShifts[it->second.id&0x3FF].size()==2 && unplace(piece,srsRot+2,pos+startShifts[it->second.id&0x3FF][1],matrix))
         ){//if can be placed
-            //DOES ORDER MATTER? YES
             pattern->pick--;
             if (pattern!=hold && (1<<piece&hold->from)){//if in hold (and hold isn't from same patternNode)
                 //hold->from^=1<<piece;//this could also remove from current pattern node
@@ -561,13 +561,8 @@ bool checkSolution(std::vector<piece>& pieceList){//placing pieces FORWARD
     }
 }
 
-void pruneImpossible(){//eventually, hopefully this will run asynchronously
-    std::set<piece> solution;
-    //for (auto it = solutions)
-}
-
 void findSolutions(bitmap matrix, int tracer, std::array<std::list<piece>,10>& fragments, std::array<int,10>& heights, std::vector<piece>& pieceList, std::array<int,maxLines>& dependencyMap, std::array<int,maxLines>& dependencyMapFlipped, std::array<char,7>& pieceLimits){
-    //printMatrix(matrix,12);//
+    //printMatrix(matrix,12);//debug
 
     for (int i=0;i<maxLines;i++){
         //if A before B and B before A, circular dependency (impossible solution)
@@ -926,6 +921,62 @@ void findSolutions(bitmap matrix, int tracer, std::array<std::list<piece>,10>& f
     pieceList.pop_back();
 }
 
+void parsePattern(){
+    std::string pattern = patternStr;
+    const std::map<char,int> pieceBits = {{'I',1<<0},{'J',1<<1},{'L',1<<2},{'O',1<<3},{'S',1<<4},{'T',1<<5},{'Z',1<<6}};
+    //pattern = pattern.replace("!","p7").replace("*","[IJLOSTZ]").replace(",","")
+    size_t pos;
+    while ((pos = pattern.find("!")) != std::string::npos) {//lazy solution (losing precious nanoseconds)
+        pattern.replace(pos, 1, "p7");
+    }
+    while ((pos = pattern.find("*")) != std::string::npos) {
+        pattern.replace(pos, 1, "[IJLOSTZ]");
+    }
+    std::vector<patternNode> patternNodes;
+    int nodeMap=0;
+    bool inBrackets = false;
+    for (int i=0;i<pattern.size();i++){
+        char c=pattern[i];
+        if (c==',') continue;//bad inputs like *p,7 still accounted for
+        auto charBit = pieceBits.find(c);
+        if (charBit!=pieceBits.end()){
+            if (!inBrackets) patternNodes.push_back(patternNode(charBit->second,1));
+            else if (nodeMap&charBit->second) throw std::runtime_error("Error: Duplicate pieces in brackets in pattern input");
+            else nodeMap|=charBit->second;
+        }
+        else if (c=='['){
+            if (inBrackets) throw std::runtime_error("Error: Nested brackets in pattern input");
+            inBrackets=true;
+        }
+        else if (c==']'){
+            if (!inBrackets) throw std::runtime_error("Error: Unmatched right bracket in pattern input");
+            if (i+1>=pattern.size() || pattern[i+1]!='p'){
+                patternNodes.push_back(patternNode(nodeMap,1));//no p# defaults to 1
+            }
+            //else if (i+2>=len(pattern) or pattern[i+1]!='p' or pattern[i+2] not in "01234567" or (i+3<len(pattern) and pattern[i+3] in "0123456789")){//correct format eg: [TLOZ]p4 (number after p must be 0-7)
+            else if (i+2>=pattern.size()
+                || pattern[i+1]!='p'
+                || pattern[i+2]>'7' || pattern[i+2]<'1'
+                || (i+3<pattern.size() && pattern[i+3]<='9' && pattern[i+3]>='0')
+            ){//correct format eg: [TLOZ]p4 (number after p must be 1-7)
+                throw std::runtime_error("Error: Missing or invalid pick number in pattern input");
+            }
+            else{
+                if (pattern[i+2]!='0') patternNodes.push_back(patternNode(nodeMap,int(pattern[i+2])));
+                i+=2;
+            }
+            nodeMap=0;//reset for next time its used
+            inBrackets=false;
+        }
+        else{
+            throw std::runtime_error("Error: Unexpected or out of place character in pattern input");
+        }
+    }
+    if (inBrackets) throw std::runtime_error("Error: unmatched left bracket in pattern input");
+
+    inputPattern = patternNodes;
+}
+
 int main() {
     bitmap testMap = board;//defined at compile time
         //8250365707200llu; : 4x4
@@ -948,10 +999,10 @@ int main() {
     std::vector< std::vector<piece> > solutions;
     std::array<int,maxLines> dependencyMap={};
     std::array<int,maxLines> dependencyMapFlipped={};
+
+    parsePattern();//set inputPattern based on patternStr
     std::array<char,7> pieceLimits={};
-    std::vector<patternNode> pattern = inputPattern;
-    int extraLimit=0;
-    for (patternNode& node:pattern){//replace pattern with inputPattern?
+    for (patternNode& node:inputPattern){
         //printf("patternNode(%d,%d),",node.from,node.pick);//debug
         if (node.pick==1 && __builtin_popcount(node.from)==1){
             pieceLimits[__builtin_ctz(node.from)]++;
