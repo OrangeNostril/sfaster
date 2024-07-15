@@ -25,9 +25,9 @@ unsigned long long debugCounter=0;
 //#define wall 0x80100200400801llu//6 mino vertical line
 #define wall bitmap(0x80100200400801llu,0x80100200400801llu<<2)//12 mino vertical line
 #if maxLines>=6//everything out of bounds is 1
-#define playfield bitmap(0x80100200400801llu<<10 , (-1ll)<<(11*maxLines-64)|(0x80100200400801llu<<1))
+#define playfield bitmap(0x80100200400801llu<<10 , ((unsigned long long)-1ll)<<(11*maxLines-64)|(0x80100200400801llu<<1))
 #else
-#define playfield bitmap((-1ll)<<(11*maxLines)|(0x80100200400801llu<<10) , (unsigned long long)-1ll)
+#define playfield bitmap(((unsigned long long)-1ll)<<(11*maxLines)|(0x80100200400801llu<<10) , (unsigned long long)-1ll)
 #endif
 
 #ifndef patternStr
@@ -457,7 +457,7 @@ bool findPath(std::map<int,piece>& solution, bitmap matrix, int clearedRows, uns
         else if ((rowMask&matrix)==rowMask){//if only gray minos remaining on row
             bitmap lowerMask;
             if ((i-clearRowsPassed)*11>=64){
-                lowerMask=bitmap(-1llu,(1llu<<11*(i-clearRowsPassed)-64)-1);
+                lowerMask=bitmap((unsigned long long)-1ll,(1llu<<(11*(i-clearRowsPassed)-64))-1);
             }
             else{
                 lowerMask=bitmap((1llu<<11*(i-clearRowsPassed))-1,0);
@@ -1043,7 +1043,7 @@ int main() {
     //std::thread thread_obj(findSolutions, testMap, 0, fragments, heights, pieceList, dependencyMap, dependencyMapFlipped, pieceLimits);
     timer2=high_resolution_clock::now();
     timer3=duration_cast<microseconds>(timer2-timer1);
-    printf("%llu us\n",timer3);//millionths of a second
+    printf("%llu us\n",timer3.count());//millionths of a second
     printf("%llu solutions\n",solCount);
 
     outFile.close();
