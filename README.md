@@ -4,15 +4,14 @@ Sfaster works similarly to the sfinder `path` tool, except that it runs consider
 
 You can run the program by typing `sfaster` (or `./sfaster` in Linux) in the command line, or by running `run_sfaster.py` directly.
 
-You can provide the starting board either as an argument in the command line, or by providing a board in `input.txt`. In the command line, the board can be the first argument provided, or paired with the `-t` flag.
-Eg: 
+You can provide the starting board either as an argument in the command line, or by providing a board in `input.txt`. In the command line, the board can be the first argument provided, or paired with the `-t` flag. The board can be a fumen or a string, though in order to input fumens you need to have `py_fumen_py` installed (run `pip install py_fumen_py` in the console). If no argument is provided (or the program is run from `run_sfaster.py` directly), the program will read from `input.txt`. Note that the input can have line breaks in `input.txt`. If the input is still blank, an empty board will be used.
+
+Examples:
 `sfaster v115@9gilEeR4glRpDeR4wwg0RpCeBtxwi0DeBtwwJeAgH`
+`sfaster -t v115@9gilEeR4glRpDeR4wwg0RpCeBtxwi0DeBtwwJeAgH`
 `sfaster LLL_____SSLOO____SSTJOO___ZZTTJJJ____ZZT`
 `sfaster -t LLL_____SSLOO____SSTJOO___ZZTTJJJ____ZZT`
-
-If no argument is provided (or the program is run from `run_sfaster.py` directly), the program will read from `input.txt`. Note that the input can have line breaks in `input.txt`.
-
-If no argument is provided and `input.txt` is blank, an empty board will be used by default.
+`sfaster` (No board provided, will read from `input.txt`.)
 
 While the program is running, every solution will be written to `output.txt` as it is found. By default, the solutions will be written as fumens, but to have solutions printed as strings, add `-F string` to your command. Keep in mind that the output file can get very large if a large number of solutions are found.
 
