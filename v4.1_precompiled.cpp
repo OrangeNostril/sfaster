@@ -14,39 +14,19 @@ unsigned long long debugCounter=0;
 #include<map>
 #include<set>
 
-#ifndef maxLines
-#define maxLines 4
-#endif
-
-#ifndef board//starting board
-#define board bitmap(0,0)//bitmap(2270923061346171007llu,508llu)//for testing
-#endif
-
 //#define wall 0x80100200400801llu//6 mino vertical line
 #define wall bitmap(0x80100200400801llu,0x80100200400801llu<<2)//12 mino vertical line
-#if maxLines>=6//everything out of bounds is 1
-#define playfield bitmap(0x80100200400801llu<<10 , ((unsigned long long)-1ll)<<(11*maxLines-64)|(0x80100200400801llu<<1))
-#else
-#define playfield bitmap(((unsigned long long)-1ll)<<(11*maxLines)|(0x80100200400801llu<<10) , (unsigned long long)-1ll)
-#endif
 
-#ifndef patternStr
-#define patternStr "*!*!*!*!*!*!*!*!*!*!*!*!*!*!*!*!*!*!*!"//std::vector<patternNode>{patternNode(-1,1),patternNode(-1,1),patternNode(-1,1),patternNode(-1,1),patternNode(-1,1),patternNode(-1,1),patternNode(-1,1),patternNode(-1,1),patternNode(-1,1),patternNode(-1,1),patternNode(-1,1),patternNode(-1,1),patternNode(-1,1),patternNode(-1,1),patternNode(-1,1)}//not very elegant
-#endif
-
-#ifndef allowHold
-#define allowHold true
-#endif
-
-#ifndef glue//not yet used
-#define glue false
-#endif
-
-//#define load180Kicks
-
-#ifndef convertToFumen
-#define convertToFumen true
-#endif
+//global variables (defined at start of main)
+int maxLines;
+//bitmap board; (declared after struct bitmap)
+//bitmap playfield; (declared after struct bitmap)
+//std::vector<patternNode> inputPattern; (declared after struct patternNode)
+bool allowHold;
+bool glue;//not yet used
+bool convertToFumen;
+bool enable180=false;//only one not guaranteed to be initialized
+//std::array<std::vector<char>,4>& kickTable180; (declared and initialized after jstris180 and tetrio180 are)
 
 struct bitmap{
     unsigned long long val[2];
@@ -136,6 +116,8 @@ struct bitmap{
         return (val[0]==0 && val[1]==0);
     }
 };
+bitmap board;
+bitmap playfield;
 
 struct piece{//or part of piece
     bitmap mat;
@@ -250,6 +232,7 @@ std::array<std::vector<char>,4> tetrio180={
     std::vector<char>{0,1,1+2*11,1+1*11,2*11,1*11},//1>>3
     std::vector<char>{0,-1,-1+2*11,-1+1*11,2*11,1*11}//3>>1
 };
+std::array<std::vector<char>,4>& kickTable180=jstris180;
 
 bitmap quickTest(char piece, char rot, int pos, bitmap matrix){//debug tool
     bitmap adjusted = rotations[piece][rot];
@@ -363,9 +346,9 @@ bool unplace(char piece, char rot, int pos, bitmap matrix, std::set<int>& dp){//
     }
 
     //#define load180Kicks tetrio180//for testing
-    #ifdef load180Kicks//180 ROTATIONS
+    if (!enable180) return false;
     //load180Kicks was #defined as jstris180 or tetrio180
-    std::array<std::vector<char>,4>& kickTable180 = load180Kicks;
+    //std::array<std::vector<char>,4>& kickTable180 = load180Kicks;
     bitmap rot180 = rotations[piece][(rot+2)&3];
     if (pos>=0) rot180<<=pos;
     else rot180>>=-pos;
@@ -397,7 +380,6 @@ bool unplace(char piece, char rot, int pos, bitmap matrix, std::set<int>& dp){//
             if (flipsBack && unplace(piece,(rot+2)&3,pos+kick,matrix,dp)) return true;
         }
     }
-    #endif
 
     return false;
 }
@@ -432,9 +414,9 @@ struct patternNode{
     int pick;
     patternNode(int f, int p) : from(f), pick(p) {};
 };
-std::vector<patternNode> inputPattern;//set at the start of the program
+std::vector<patternNode> inputPattern;
 //note: maybe in the future, it->second.mat can be a map of mats for different combinations of line clears
-//bigger note: rn placedMapDP is interfering with bags (leaving out some solutions) so i just stopped using it
+//bigger note: rn placedMapDP is interfering with bags (leaving out some solutions)
 bool findPath(std::map<int,piece>& solution, bitmap matrix, int clearedRows, unsigned long long placedMap, std::set<unsigned long long>& placedMapDP, const std::vector<patternNode>::iterator& pattern,const std::vector<patternNode>::iterator& hold){
     //if (placedMapDP.find(placedMap)!=placedMapDP.end()) return false;//already tried combination
     if (placedMap==(1llu<<solution.size())-1) return true;//if all pieces placed
@@ -457,7 +439,7 @@ bool findPath(std::map<int,piece>& solution, bitmap matrix, int clearedRows, uns
         else if ((rowMask&matrix)==rowMask){//if only gray minos remaining on row
             bitmap lowerMask;
             if ((i-clearRowsPassed)*11>=64){
-                lowerMask=bitmap((unsigned long long)-1ll,(1llu<<(11*(i-clearRowsPassed)-64))-1);
+                lowerMask=bitmap((unsigned long long)-1llu,(1llu<<(11*(i-clearRowsPassed)-64))-1);
             }
             else{
                 lowerMask=bitmap((1llu<<11*(i-clearRowsPassed))-1,0);
@@ -561,7 +543,7 @@ bool checkSolution(std::vector<piece>& pieceList){//placing pieces FORWARD
     }
 }
 
-void findSolutions(bitmap matrix, int tracer, std::array<std::list<piece>,10>& fragments, std::array<int,10>& heights, std::vector<piece>& pieceList, std::array<int,maxLines>& dependencyMap, std::array<int,maxLines>& dependencyMapFlipped, std::array<char,7>& pieceLimits){
+void findSolutions(bitmap matrix, int tracer, std::array<std::list<piece>,10>& fragments, std::array<int,10>& heights, std::vector<piece>& pieceList, std::vector<int>& dependencyMap, std::vector<int>& dependencyMapFlipped, std::array<char,7>& pieceLimits){
     //printMatrix(matrix,12);//debug
 
     for (int i=0;i<maxLines;i++){
@@ -587,8 +569,8 @@ void findSolutions(bitmap matrix, int tracer, std::array<std::list<piece>,10>& f
     int col=tracer%11;
     char row=tracer/11;
     pieceList.emplace_back();
-    std::array<int,maxLines> dependencyMapBackup = dependencyMap;
-    std::array<int,maxLines> dependencyMapFlippedBackup = dependencyMapFlipped;
+    std::vector<int> dependencyMapBackup = dependencyMap;
+    std::vector<int> dependencyMapFlippedBackup = dependencyMapFlipped;
     for (auto it=fragments[col].begin();it!=fragments[col].end();it++){
         if (!(matrix>>tracer & bitmap(it->mat))){
             it->filledMap|=1<<row;//easy to undo
@@ -921,8 +903,7 @@ void findSolutions(bitmap matrix, int tracer, std::array<std::list<piece>,10>& f
     pieceList.pop_back();
 }
 
-void parsePattern(){
-    std::string pattern = patternStr;
+void parsePattern(std::string pattern){
     const std::map<char,int> pieceBits = {{'I',1<<0},{'J',1<<1},{'L',1<<2},{'O',1<<3},{'S',1<<4},{'T',1<<5},{'Z',1<<6}};
     //pattern = pattern.replace("!","p7").replace("*","[IJLOSTZ]").replace(",","")
     size_t pos;
@@ -976,8 +957,28 @@ void parsePattern(){
 
     inputPattern = patternNodes;
 }
+int main(int argc, char* argv[]) {//v4.1_compiled.exe board, pattern, maxLines, allowHold, glue, convertToFumen, load180Kicks
+    if (argc<7) return 1;//for me
+    int comma=0;//setting board
+    while(argv[1][++comma]!=',');
+    argv[1][comma++]=0;
+    board = bitmap(strtoull(argv[1],nullptr,0),strtoull(argv[1]+comma,nullptr,0));
+    parsePattern((std::string)argv[2]);//setting inputPattern
+    maxLines = (argv[3][1]?10:argv[3][0]-'0');//setting maxLines
+    if (maxLines>=6){//setting playfield (flipping all out-of-matrix bits)
+        playfield=bitmap(0x80100200400801llu<<10 , ((unsigned long long)-1ll)<<(11*maxLines-64)|(0x80100200400801llu<<1));
+    }
+    else{
+        playfield=bitmap(((unsigned long long)-1ll)<<(11*maxLines)|(0x80100200400801llu<<10) , (unsigned long long)-1ll);
+    }
+    allowHold = (argv[4][0]=='t');//setting allowHold
+    glue = (argv[5][0]=='t');//setting glue
+    convertToFumen = (argv[6][0]=='t');//setting convertToFumen
+    if (argc==8){//setting kickTable180
+        enable180 = true;
+        if (argv[7][0]=='t') kickTable180 = tetrio180;//jstris180 by default
+    }
 
-int main() {
     bitmap testMap = board;//defined at compile time
 
     std::array<int,10> heights;
@@ -993,13 +994,11 @@ int main() {
 
     std::array<std::list<piece>,10> fragments;
     std::vector<piece> pieceList;
-    std::vector< std::vector<piece> > solutions;
-    std::array<int,maxLines> dependencyMap={};
-    std::array<int,maxLines> dependencyMapFlipped={};
-
-    parsePattern();//set inputPattern based on patternStr
+    std::vector<int> dependencyMap(maxLines);
+    std::vector<int> dependencyMapFlipped(maxLines);
     std::array<char,7> pieceLimits={};
-    for (patternNode& node:inputPattern){
+    std::vector<patternNode> pattern = inputPattern;
+    for (patternNode& node:pattern){//replace pattern with inputPattern?
         //printf("patternNode(%d,%d),",node.from,node.pick);//debug
         if (node.pick==1 && __builtin_popcount(node.from)==1){
             pieceLimits[__builtin_ctz(node.from)]++;

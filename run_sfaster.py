@@ -33,6 +33,7 @@ parser.add_argument("-p", "--patterns", type=str, help="Pattern string to parse"
 parser.add_argument("-s", "--split", choices=["yes", "no"], default="yes", help="Split preference")
 parser.add_argument("-d", "--drop", choices=["jstris180", "tetrio180","soft","softdrop"], default="soft", help="Specify movement abilities")
 parser.add_argument("-F", "--format-solution", choices=["fumen", "string", "str"], default="fumen", help="Format of each solution")
+parser.add_argument("-B", "--big-input", action="store_true", help="Have the program custom-compiled to run slightly faster for larger inputs")
 
 args = parser.parse_args()
 
@@ -65,20 +66,32 @@ bitmap=0
 for i in range(len(inputBoard)):
     if (inputBoard[i]!='_'):
         bitmap|=1<<i<<(i//10)
-print("Bitmap created\nCompiling finder...")#
-if (load180Kicks!=""):
-    output=subprocess.run(["g++", "v4.1_demo.cpp", f"-DmaxLines={lines}", f"-Dboard=bitmap({bitmap&0xFFFFFFFFFFFFFFFF}llu,{bitmap>>64}llu)", f"-DpatternStr=\"{pattern}\"", f"-DallowHold={hold}", f"-Dglue={glue}", load180Kicks, "-O3", "-std=c++11", "-o", "v4"],capture_output=True)
-else:
-    output=subprocess.run(["g++", "v4.1_demo.cpp", f"-DmaxLines={lines}", f"-Dboard=bitmap({bitmap&0xFFFFFFFFFFFFFFFF}llu,{bitmap>>64}llu)", f"-DpatternStr=\"{pattern}\"", f"-DallowHold={hold}", f"-Dglue={glue}", "-O3", "-std=c++11", "-o", "v4"],capture_output=True)
-if (output.stderr!=b''):
-    raise Exception("Compilation error:\n\t"+output.stderr.decode())
+if (args.big_input):#custom-compiled
+    print("Bitmap created\nCompiling finder...")#
+    if (load180Kicks!=""):
+        output=subprocess.run(["g++", "v4.1_demo.cpp", f"-DmaxLines={lines}", f"-Dboard=bitmap({bitmap&0xFFFFFFFFFFFFFFFF}llu,{bitmap>>64}llu)", f"-DpatternStr=\"{pattern}\"", f"-DallowHold={hold}", f"-Dglue={glue}", load180Kicks, "-O3", "-std=c++11", "-o", "v4"],capture_output=True)
+    else:
+        output=subprocess.run(["g++", "v4.1_demo.cpp", f"-DmaxLines={lines}", f"-Dboard=bitmap({bitmap&0xFFFFFFFFFFFFFFFF}llu,{bitmap>>64}llu)", f"-DpatternStr=\"{pattern}\"", f"-DallowHold={hold}", f"-Dglue={glue}", "-O3", "-std=c++11", "-o", "v4"],capture_output=True)
+    if (output.stderr!=b''):
+        raise Exception("Compilation error:\n\t"+output.stderr.decode())
 
-print("Finished compiling, running...")#
-output=subprocess.run(["./v4"],capture_output=True)
-#input(output.stdout.decode()+"\n")#debug
+    print("Finished compiling, running...")#
+    output=subprocess.run(["./v4"],capture_output=True)
+else:#not-custom compiled
+    print("Bitmap created")#
+    try:
+        subprocess.run(["./v4_precompiled"])
+    except FileNotFoundError:
+        print("Executable not found, compiling...")
+        subprocess.run(["g++", "v4.1_precompiled.cpp","-O3", "-std=c++11", "-o", "v4_precompiled"])
+    print("Running finder...")#
+    if (load180Kicks!=""):#v4.1_compiled.exe board, pattern, maxLines, allowHold, glue, convertToFumen, load180Kicks
+        output=subprocess.run(["./v4_precompiled", f"{bitmap&0xFFFFFFFFFFFFFFFF},{bitmap>>64}", f'{pattern}', str(lines), hold, glue, convertToFumen, load180Kicks],capture_output=True)
+    else:
+        output=subprocess.run(["./v4_precompiled", f"{bitmap&0xFFFFFFFFFFFFFFFF},{bitmap>>64}", f'{pattern}', str(lines), hold, glue, convertToFumen],capture_output=True)
 if (output.stderr!=b''):
     raise Exception("Program error:\n\t"+output.stderr.decode())
-
+#input(output.stdout.decode()+"\n")#debug
 data=output.stdout.decode().split('\n')
 seconds=int(data[0][:-3])/1e6
 solutions=format(int(data[1].split(" ")[0]),",")
