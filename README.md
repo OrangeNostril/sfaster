@@ -1,4 +1,4 @@
-IMPORTANT: If you are a Mac or linux user, this package requires G++ to function. Executables for Mac and linux coming soon.
+IMPORTANT: If you are a Mac or linux user, this package requires either Clang++ or G++ to function. Executables for Mac and linux coming soon.
 
 Sfaster works similarly to the sfinder `path` tool, except that it runs considerably faster, and does not run into memory issues. Sfaster is capable of quickly handling many smaller tasks, as well as taking on large tasks that sfinder would fail to complete.
 
@@ -23,7 +23,7 @@ Sfaster doesn't have some of the more niche flags in sfinder yet, but it current
     * Warning: the 180 kicktables use the same logic as the other kicktables, but they haven't been thoroughly tested yet.
 Here are the flags unique to Sfinder:
 * `-F`, `--format-solution` Specify whether solutions should be written as fumens or strings. Choose `fumen` or `string`, defaults to `fumen`.
-* `-B`, Add this flag if you're processing a very large input (ie: many pieces). It should run slightly faster, but will take a few seconds to recompile before it starts. G++ is requires to use this flag.
+* `-B`, Add this flag if you're processing a very large input (ie: many pieces). It should run slightly faster, but will take a few seconds to recompile before it starts. Clang++/G++ is requires to use this flag. Due to how compilers work, there's a chance this version could have a significantly different (faster or even slower) runtime than the default version.
 
 ### NEW AND UPCOMING FEATURES
 #### New features:
@@ -34,7 +34,7 @@ Here are the flags unique to Sfinder:
 * Option to output fumens instead of strings
 * Command line flags (like `-t`, `-c`)
 * Option to enable 180 spins with either the jstris or tetrio kicktables
-* Version for people without G++ (or version that doesn't need to recompile every time)
+* Version for people without Clang++/G++ (or version that doesn't need to recompile every time)
 * Faster fumenify (or option to output directly as fumens)
 #### Coming soon:
 * Multithreading (should increase the speed significantly)
