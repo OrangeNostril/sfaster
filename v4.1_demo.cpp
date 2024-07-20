@@ -2,7 +2,6 @@
 
 #include <chrono>//timer
 using namespace std::chrono;
-unsigned long long debugCounter=0;
 
 #include<stdio.h>
 #include<iostream>
@@ -19,7 +18,7 @@ unsigned long long debugCounter=0;
 #endif
 
 #ifndef board//starting board
-#define board bitmap(0,0)//bitmap(2270923061346171007llu,508llu)//for testing
+#define board bitmap(0,0)
 #endif
 
 //#define wall 0x80100200400801llu//6 mino vertical line
@@ -195,6 +194,21 @@ void writeFumen(std::string solStr){//converts str to fumen and writes to file
     else{
         throw std::runtime_error("Error writing to output file.");
     }
+}
+std::string stringify(std::vector<piece>& pieceList){//debug tool
+    std::string solStr(10*maxLines,'X');
+    constexpr char key[7] = {'I','J','L','O','S','T','Z'};
+    for (int r=0;r<maxLines;r++){
+        for (int c=0;c<10;c++){
+            for (auto p:pieceList){
+                if (p.mat(r*11+c)){
+                    solStr[(maxLines-r-1)*10+c]=key[p.id&0xFF];//flip solution (fumen reads top-bottom)
+                    break;//0-1 minos per square obv
+                }
+            }
+        }
+    }
+    return solStr;
 }
 void writeSolution(std::vector<piece>& pieceList){//stringifies and writes one solution to file
     std::string solStr(10*maxLines,'X');
@@ -375,8 +389,6 @@ bool unplace(char piece, char rot, int pos, bitmap matrix, std::set<int>& dp){//
         if (kick>=0) kicked<<kick;
         else kicked>>-kick;
         if (!(kicked&matrix)){
-            //if (piece==2) printf("i'm in\n");//
-
             bool flipsBack=true;
             for (int k2=0;k2<k;k2++){
                 bitmap kicked2 = rotations[piece][rot];//forwards because un-going backwards B)
@@ -434,14 +446,11 @@ struct patternNode{
 };
 std::vector<patternNode> inputPattern;//set at the start of the program
 //note: maybe in the future, it->second.mat can be a map of mats for different combinations of line clears
-//bigger note: rn placedMapDP is interfering with bags (leaving out some solutions) so i just stopped using it
+//bigger note: rn placedMapDP is interfering with bags (leaving out some solutions)
 bool findPath(std::map<int,piece>& solution, bitmap matrix, int clearedRows, unsigned long long placedMap, std::set<unsigned long long>& placedMapDP, const std::vector<patternNode>::iterator& pattern,const std::vector<patternNode>::iterator& hold){
-    //if (placedMapDP.find(placedMap)!=placedMapDP.end()) return false;//already tried combination
     if (placedMap==(1llu<<solution.size())-1) return true;//if all pieces placed
-    //while (pattern->pick==0){pattern=next(pattern);}//should allow p0 (remove "const" from parameter)
 
-
-    /*if (!(matrix==wall<<10)){
+    /*if (!(matrix==wall<<10)){//debug
     //if (__builtin_popcountll(matrix[0])>6+4){//6 for empty (just wall)
         printf("pick %d from 0x%x, hold: 0x%x ",pattern->pick,pattern->from,hold->from);//debug
         printMatrix(matrix);//
@@ -466,18 +475,18 @@ bool findPath(std::map<int,piece>& solution, bitmap matrix, int clearedRows, uns
             matrix=(matrix&lowerMask)|(matrix&~lowerMask)>>11|wall<<10;
             clearedRows|=1<<i;
             clearRowsPassed++;
-            //printMatrix(matrix);//debug
         }
         else{//if current line was not (just nor ever) cleared
             rowMask<<=11;
         }
     }
     
+    unsigned long long dpID = hold->from | pattern->from<<7 | placedMap<<14;
     int counter=0;
     for (auto it=solution.begin();it!=solution.end();it++,counter++){
         if (!((1<<(it->second.id&0xFF))&(pattern->from|hold->from))) continue;//if breaks piece order requirements
         if (placedMap>>counter&1) continue;//piece already placed
-        //if (placedMapDP.find(placedMap|1ll<<counter)!=placedMapDP.end()) continue;//already tried combination
+        if (placedMapDP.find(dpID|1llu<<(counter+14))!=placedMapDP.end()) continue;//already tried combination
         if ((it->second.filledMap&clearedRows)!=it->second.filledMap) continue;//if it skips any lines that haven't been cleared yet
 
         char piece=it->second.id&0xFF;
@@ -489,7 +498,7 @@ bool findPath(std::map<int,piece>& solution, bitmap matrix, int clearedRows, uns
         pos-=11*rowsToLower;
 
         int srsPos=pos+startShifts[it->second.id&0x3FF][0];
-        bitmap adjusted = rotations[piece][srsRot];//just to see if it's floating
+        bitmap adjusted = rotations[piece][srsRot];//get piece bitmap
         if (srsPos>=0) adjusted<<=srsPos;
         else adjusted>>=-srsPos;
         if (!(adjusted&(matrix<<11|0x3FF))) continue;//would be placing a floating piece
@@ -498,12 +507,10 @@ bool findPath(std::map<int,piece>& solution, bitmap matrix, int clearedRows, uns
         ){//if can be placed
             pattern->pick--;
             if (pattern!=hold && (1<<piece&hold->from)){//if in hold (and hold isn't from same patternNode)
-                //hold->from^=1<<piece;//this could also remove from current pattern node
                 if (pattern->pick==0){//taking last from patternNode
                     if (findPath(solution,matrix|adjusted,clearedRows,placedMap|1llu<<counter,placedMapDP,next(pattern),pattern)) return true;
                 }
                 else if (findPath(solution,matrix|adjusted,clearedRows,placedMap|1llu<<counter,placedMapDP,pattern,pattern)) return true;
-                //hold->from^=1<<piece;
             }
             if (1<<piece&pattern->from){//if in pattern
                 pattern->from^=1<<piece;//also removes from hold if hold is same patternNode
@@ -517,12 +524,12 @@ bool findPath(std::map<int,piece>& solution, bitmap matrix, int clearedRows, uns
         }
     }
 
-    placedMapDP.insert(placedMap);
+    placedMapDP.insert(dpID);
     return false;
 }
 
 bool checkSolution(std::vector<piece>& pieceList){//placing pieces FORWARD
-    std::map<int,piece> solution;//later on this section will probably be part of pruneImpossible()
+    std::map<int,piece> solution;
     for (auto it=pieceList.begin();it!=pieceList.end();it++){        
         if (solution.find(it->id)==solution.end()){
             solution[it->id].mat=0;//the rest are auto-initialized
@@ -590,7 +597,7 @@ void findSolutions(bitmap matrix, int tracer, std::array<std::list<piece>,10>& f
     std::array<int,maxLines> dependencyMapBackup = dependencyMap;
     std::array<int,maxLines> dependencyMapFlippedBackup = dependencyMapFlipped;
     for (auto it=fragments[col].begin();it!=fragments[col].end();it++){
-        if (!(matrix>>tracer & bitmap(it->mat))){
+        if (!(matrix>>tracer & bitmap(it->mat) & 0x3FF)){//if overlaps gray minos ON THE SAME ROW
             it->filledMap|=1<<row;//easy to undo
             piece save=*it;//copying whole piece (for now?)
             auto saveSpot = next(it);
