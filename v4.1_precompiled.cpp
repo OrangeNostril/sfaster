@@ -968,9 +968,10 @@ int main(int argc, char* argv[]) {//v4.1_compiled.exe board, pattern, maxLines, 
     allowHold = (argv[4][0]=='t');//setting allowHold
     glue = (argv[5][0]=='t');//setting glue
     convertToFumen = (argv[6][0]=='t');//setting convertToFumen
-    if (argc==8){//setting kickTable180
+    /*using outPath (argv[7]) in a bit*/
+    if (argc==9){//setting kickTable180
         enable180 = true;
-        if (argv[7][0]=='t') kickTable180 = tetrio180;//jstris180 by default
+        if (argv[8][0]=='t') kickTable180 = tetrio180;//jstris180 by default
     }
 
     bitmap testMap = board;//defined at compile time
@@ -1018,7 +1019,7 @@ int main(int argc, char* argv[]) {//v4.1_compiled.exe board, pattern, maxLines, 
         printf("%c:%d, ","IJLOSTZ"[i],pieceLimits[i]);
     }printf("\n");*/
 
-    outFile.open("output.txt",std::ios::trunc);
+    outFile.open(argv[7],std::ios::trunc);
     if (!outFile.is_open()){
         throw std::runtime_error("Error opening output file.");
     }
@@ -1030,7 +1031,6 @@ int main(int argc, char* argv[]) {//v4.1_compiled.exe board, pattern, maxLines, 
 
     timer1=high_resolution_clock::now();
     findSolutions(testMap, 0, fragments, heights, pieceList, dependencyMap, dependencyMapFlipped, pieceLimits);/* FUNCTION CALL */
-    //std::thread thread_obj(findSolutions, testMap, 0, fragments, heights, pieceList, dependencyMap, dependencyMapFlipped, pieceLimits);
     timer2=high_resolution_clock::now();
     timer3=duration_cast<microseconds>(timer2-timer1);
     printf("%llu us\n",timer3.count());//millionths of a second

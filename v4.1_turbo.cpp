@@ -49,6 +49,10 @@ using namespace std::chrono;
 #define convertToFumen true
 #endif
 
+#ifndef outPath
+#define outPath "output.txt"
+#endif
+
 std::atomic<int> usedCores{1};//always using 1 thread
 std::atomic<unsigned long long> solCount{0};//tag: countSolutions
 
@@ -1056,7 +1060,7 @@ int main() {
         printf("%c:%d, ","IJLOSTZ"[i],pieceLimits[i]);
     }printf("\n");*/
 
-    outFile.open("output.txt",std::ios::trunc);
+    outFile.open(outPath,std::ios::trunc);
     if (!outFile.is_open()){
         throw std::runtime_error("Error opening output file.");
     }
@@ -1067,7 +1071,6 @@ int main() {
     auto timer3=duration_cast<microseconds>(timer2-timer1);
     timer1=high_resolution_clock::now();
 
-    
     #pragma omp parallel
     {
         #pragma omp single

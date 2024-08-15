@@ -32,6 +32,7 @@ parser.add_argument("-H", "--hold", choices=["avoid", "use"], default="use",help
 parser.add_argument("-p", "--patterns", type=str, help="Pattern string to parse")
 parser.add_argument("-s", "--split", choices=["yes", "no"], default="yes", help="Split preference")
 parser.add_argument("-d", "--drop", choices=["jstris180", "tetrio180","soft","softdrop"], default="soft", help="Specify movement abilities")
+parser.add_argument("-o", "--output-base", default="output.txt", help="Specify program output destination")
 parser.add_argument("-F", "--format-solution", choices=["fumen", "string", "str"], default="fumen", help="Format of each solution")
 parser.add_argument("-B", "--big-input", action="store_true", help="Have the program custom-compiled to run slightly faster for larger inputs")
 parser.add_argument("-T", "--turbo", action="store_true", help="Turbo mode (uses all cores, try to free up CPU space beforehand)")
@@ -83,10 +84,10 @@ if (args.turbo and not args.big_input):#turbo_precompiled
         subprocess.run([compiler, "-fopenmp", "v4.1_precompiled_turbo.cpp", "-O3", "-std=c++11", "-o", "v4_precompiled_turbo"])
     print("Running finder...")#
     if (load180Kicks!=""):#v4.1_compiled.exe board, pattern, maxLines, allowHold, glue, convertToFumen, load180Kicks
-        output=subprocess.run(["./v4_precompiled_turbo", f"{bitmap&0xFFFFFFFFFFFFFFFF},{bitmap>>64}", f'{pattern}', str(lines), hold, glue, convertToFumen, load180Kicks],capture_output=True)
+        output=subprocess.run(["./v4_precompiled_turbo", f"{bitmap&0xFFFFFFFFFFFFFFFF},{bitmap>>64}", f'{pattern}', str(lines), hold, glue, convertToFumen, args.output_base, load180Kicks],capture_output=True)
     else:
-        output=subprocess.run(["./v4_precompiled_turbo", f"{bitmap&0xFFFFFFFFFFFFFFFF},{bitmap>>64}", f'{pattern}', str(lines), hold, glue, convertToFumen],capture_output=True)
-elif (args.turbo):#turbo mode
+        output=subprocess.run(["./v4_precompiled_turbo", f"{bitmap&0xFFFFFFFFFFFFFFFF},{bitmap>>64}", f'{pattern}', str(lines), hold, glue, convertToFumen, args.output_base],capture_output=True)
+elif (args.turbo):#turbo mode (custom compiled)
     print("Bitmap created\nTurbo mode\nCompiling finder...")#
     try:#only trying g++ because clang++ isn't automatically compatible with OpenMP
         subprocess.run(["g++"],capture_output=True)
@@ -95,9 +96,9 @@ elif (args.turbo):#turbo mode
     except FileNotFoundError:
         raise Exception("Please install G++ before using the -T flag")
     if (load180Kicks!=""):
-        output=subprocess.run([compiler, "-fopenmp", "v4.1_turbo.cpp", f"-DmaxLines={lines}", f"-Dboard=bitmap({bitmap&0xFFFFFFFFFFFFFFFF}llu,{bitmap>>64}llu)", f"-DpatternStr=\"{pattern}\"", f"-DallowHold={hold}", f"-Dglue={glue}", f"-DconvertToFumen={convertToFumen}", load180Kicks, "-O3", "-std=c++11", "-o", "v4"],capture_output=True)
+        output=subprocess.run([compiler, "-fopenmp", "v4.1_turbo.cpp", f"-DmaxLines={lines}", f"-Dboard=bitmap({bitmap&0xFFFFFFFFFFFFFFFF}llu,{bitmap>>64}llu)", f"-DpatternStr=\"{pattern}\"", f"-DallowHold={hold}", f"-Dglue={glue}", f"-DconvertToFumen={convertToFumen}", f"-DoutPath=\"{args.output_base}\"", load180Kicks, "-O3", "-std=c++11", "-o", "v4"],capture_output=True)
     else:
-        output=subprocess.run([compiler, "-fopenmp", "v4.1_turbo.cpp", f"-DmaxLines={lines}", f"-Dboard=bitmap({bitmap&0xFFFFFFFFFFFFFFFF}llu,{bitmap>>64}llu)", f"-DpatternStr=\"{pattern}\"", f"-DallowHold={hold}", f"-Dglue={glue}", f"-DconvertToFumen={convertToFumen}", "-O3", "-std=c++11", "-o", "v4"],capture_output=True)
+        output=subprocess.run([compiler, "-fopenmp", "v4.1_turbo.cpp", f"-DmaxLines={lines}", f"-Dboard=bitmap({bitmap&0xFFFFFFFFFFFFFFFF}llu,{bitmap>>64}llu)", f"-DpatternStr=\"{pattern}\"", f"-DallowHold={hold}", f"-Dglue={glue}", f"-DconvertToFumen={convertToFumen}", f"-DoutPath=\"{args.output_base}\"", "-O3", "-std=c++11", "-o", "v4"],capture_output=True)
     if (output.stderr!=b''):
         raise Exception("Compilation error:\n\t"+output.stderr.decode())
 
@@ -117,9 +118,9 @@ elif (args.big_input):#custom-compiled
         except FileNotFoundError:
             raise Exception("Please install either Clang++ or G++ before using the -B flag")
     if (load180Kicks!=""):
-        output=subprocess.run([compiler, "v4.1_demo.cpp", f"-DmaxLines={lines}", f"-Dboard=bitmap({bitmap&0xFFFFFFFFFFFFFFFF}llu,{bitmap>>64}llu)", f"-DpatternStr=\"{pattern}\"", f"-DallowHold={hold}", f"-Dglue={glue}", f"-DconvertToFumen={convertToFumen}", load180Kicks, "-O3", "-std=c++11", "-o", "v4"],capture_output=True)
+        output=subprocess.run([compiler, "v4.1_demo.cpp", f"-DmaxLines={lines}", f"-Dboard=bitmap({bitmap&0xFFFFFFFFFFFFFFFF}llu,{bitmap>>64}llu)", f"-DpatternStr=\"{pattern}\"", f"-DallowHold={hold}", f"-Dglue={glue}", f"-DconvertToFumen={convertToFumen}", f"-DoutPath=\"{args.output_base}\"", load180Kicks, "-O3", "-std=c++11", "-o", "v4"],capture_output=True)
     else:
-        output=subprocess.run([compiler, "v4.1_demo.cpp", f"-DmaxLines={lines}", f"-Dboard=bitmap({bitmap&0xFFFFFFFFFFFFFFFF}llu,{bitmap>>64}llu)", f"-DpatternStr=\"{pattern}\"", f"-DallowHold={hold}", f"-Dglue={glue}", f"-DconvertToFumen={convertToFumen}", "-O3", "-std=c++11", "-o", "v4"],capture_output=True)
+        output=subprocess.run([compiler, "v4.1_demo.cpp", f"-DmaxLines={lines}", f"-Dboard=bitmap({bitmap&0xFFFFFFFFFFFFFFFF}llu,{bitmap>>64}llu)", f"-DpatternStr=\"{pattern}\"", f"-DallowHold={hold}", f"-Dglue={glue}", f"-DconvertToFumen={convertToFumen}", f"-DoutPath=\"{args.output_base}\"", "-O3", "-std=c++11", "-o", "v4"],capture_output=True)
     if (output.stderr!=b''):
         raise Exception("Compilation error:\n\t"+output.stderr.decode())
 
@@ -145,9 +146,9 @@ else:#not-custom compiled
         subprocess.run([compiler, "v4.1_precompiled.cpp", "-O3", "-std=c++11", "-o", "v4_precompiled"])
     print("Running finder...")#
     if (load180Kicks!=""):#v4.1_compiled.exe board, pattern, maxLines, allowHold, glue, convertToFumen, load180Kicks
-        output=subprocess.run(["./v4_precompiled", f"{bitmap&0xFFFFFFFFFFFFFFFF},{bitmap>>64}", f'{pattern}', str(lines), hold, glue, convertToFumen, load180Kicks],capture_output=True)
+        output=subprocess.run(["./v4_precompiled", f"{bitmap&0xFFFFFFFFFFFFFFFF},{bitmap>>64}", f'{pattern}', str(lines), hold, glue, convertToFumen, args.output_base, load180Kicks],capture_output=True)
     else:
-        output=subprocess.run(["./v4_precompiled", f"{bitmap&0xFFFFFFFFFFFFFFFF},{bitmap>>64}", f'{pattern}', str(lines), hold, glue, convertToFumen],capture_output=True)
+        output=subprocess.run(["./v4_precompiled", f"{bitmap&0xFFFFFFFFFFFFFFFF},{bitmap>>64}", f'{pattern}', str(lines), hold, glue, convertToFumen, args.output_base],capture_output=True)
 if (output.stderr!=b''):
     raise Exception("Program error:\n\t"+output.stderr.decode())
 #input(output.stdout.decode()+"\n")#debug
@@ -158,4 +159,4 @@ if (seconds>=60):#show minutes
     print(f"Found {solutions} solutions in {int(seconds//60)}:{round(seconds%60):02}s")
 else:
     print(f"Found {solutions} solutions in {seconds%60} seconds")
-print("Solutions have been written to output.txt")
+print("Solutions have been written to",args.output_base)

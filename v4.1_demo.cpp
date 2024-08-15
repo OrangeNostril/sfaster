@@ -30,7 +30,7 @@ using namespace std::chrono;
 #endif
 
 #ifndef patternStr
-#define patternStr "*p1*p1*p1*p1*p1*p1*p1*p1*p1*p1*p1*p1*p1*p1*p1*p1*p1*p1*p1*p1"//std::vector<patternNode>{patternNode(-1,1),patternNode(-1,1),patternNode(-1,1),patternNode(-1,1),patternNode(-1,1),patternNode(-1,1),patternNode(-1,1),patternNode(-1,1),patternNode(-1,1),patternNode(-1,1),patternNode(-1,1),patternNode(-1,1),patternNode(-1,1),patternNode(-1,1),patternNode(-1,1)}//not very elegant
+#define patternStr "*!*!*!*!*!*!*!*!*!*!*!*!*!*!*!*!*!*!*!*!"//std::vector<patternNode>{patternNode(-1,1),patternNode(-1,1),patternNode(-1,1),patternNode(-1,1),patternNode(-1,1),patternNode(-1,1),patternNode(-1,1),patternNode(-1,1),patternNode(-1,1),patternNode(-1,1),patternNode(-1,1),patternNode(-1,1),patternNode(-1,1),patternNode(-1,1),patternNode(-1,1)}//not very elegant
 #endif
 
 #ifndef allowHold
@@ -45,6 +45,10 @@ using namespace std::chrono;
 
 #ifndef convertToFumen
 #define convertToFumen true
+#endif
+
+#ifndef outPath
+#define outPath "output.txt"
 #endif
 
 struct bitmap{
@@ -1032,7 +1036,7 @@ int main() {
         printf("%c:%d, ","IJLOSTZ"[i],pieceLimits[i]);
     }printf("\n");*/
 
-    outFile.open("output.txt",std::ios::trunc);
+    outFile.open(outPath,std::ios::trunc);
     if (!outFile.is_open()){
         throw std::runtime_error("Error opening output file.");
     }

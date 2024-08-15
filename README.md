@@ -21,14 +21,15 @@ Sfaster doesn't have some of the more niche flags in sfinder yet, but it current
 * `-H`, `--hold` Whether to allow hold to be used. Specify `use` to allow, or `avoid` to disallow. Defaults to `use`.
 * `-d`, `--drop` Specify movement abilities (ie: enable 180 spins). Currently, the options are `soft` (or `softdrop`), `jstris180`, or `tetris180`. To enable 180 spins with the 180 kick table for either jstris or tetr.io, choose `jstris180` or `tetrio180`, respectively.
     * Warning: the 180 kicktables use the same logic as the other kicktables, but they haven't been thoroughly tested yet.
+* `-o`, `--output-base` Specify where the solutions should be written. Defaults to `"output.txt"`.
 Here are the flags unique to Sfinder:
 * `-F`, `--format-solution` Specify whether solutions should be written as fumens or strings. Choose `fumen` or `string`, defaults to `fumen`.
-* `-B`, `--big-input` Add this flag if you're processing a very large input (ie: many pieces). It should run slightly faster, but will take a few seconds to recompile before it starts. Clang++/G++ is required to use this flag. Due to how compilers work, there's a chance this version could have a significantly different (faster or even slower) runtime than the default version.
-* `-T`, `--turbo` Run in Turbo mode: uses all the cores of your computer to run large inputs several times faster than normal. Works best if you don't have other programs open. G++ is required to use this flag. (Note: This flag pairs well with `-B`.)
+* `-B`, `--big-input` Add this flag if you're processing a very large input (ie: many pieces). It should typically run faster, but will take a few seconds to recompile before it starts. Clang++/G++ is required to use this flag. Due to how compilers work, there's a chance this version could have a significantly different (faster or even slower) runtime than the default version.
+* `-T`, `--turbo` Run in Turbo mode: uses all the cores of your computer to run large inputs several times faster than normal. Works best if you don't have other programs open.
+    * G++ (not Clang++) is required to use both `-B` and `-T` simultaneously. No compiler is needed to run `-T` alone.
 
 ### NEW AND UPCOMING FEATURES
 #### New features:
-* Multithreading (should increase the speed significantly)
 * Prune impossible solutions
 * Piece restrictions
 * Variable-height PCs (not just 4L)
@@ -38,9 +39,10 @@ Here are the flags unique to Sfinder:
 * Option to enable 180 spins with either the jstris or tetrio kicktables
 * Version for people without Clang++/G++ (or version that doesn't need to recompile every time)
 * Faster fumenify (or option to output directly as fumens)
+* Multithreading (should increase the speed significantly)
+* Custom output destination (`-o`)
 #### Coming soon:
 * Version to run many boards back to back (eg: every page in fumen)
-* Custom output destination (`-o`)
 #### Coming later:
 * Faster setup (ie: new non-python version of run_sfaster)
 * Specify kicktables (beyond 180 toggle)
