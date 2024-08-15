@@ -1,3 +1,3 @@
 #!/bin/bash
 python ./run_sfaster.py "$@"
-rm v4
+rm v4 2>/dev/null
