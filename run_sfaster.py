@@ -34,6 +34,7 @@ parser.add_argument("-s", "--split", choices=["yes", "no"], default="yes", help=
 parser.add_argument("-d", "--drop", choices=["jstris180", "tetrio180","soft","softdrop"], default="soft", help="Specify movement abilities")
 parser.add_argument("-F", "--format-solution", choices=["fumen", "string", "str"], default="fumen", help="Format of each solution")
 parser.add_argument("-B", "--big-input", action="store_true", help="Have the program custom-compiled to run slightly faster for larger inputs")
+parser.add_argument("-T", "--turbo", action="store_true", help="Turbo mode (uses all cores, try to free up CPU space beforehand)")
 
 args = parser.parse_args()
 
@@ -66,7 +67,25 @@ bitmap=0
 for i in range(len(inputBoard)):
     if (inputBoard[i]!='_'):
         bitmap|=1<<i<<(i//10)
-if (args.big_input):#custom-compiled
+if (args.turbo):#turbo mode
+    print("Bitmap created\nTurbo mode\nCompiling finder...")#
+    try:#only trying g++ because clang++ isn't automatically compatible with OpenMP
+        subprocess.run(["g++"],capture_output=True)
+        compiler = "g++"
+        print("Using G++")#
+    except FileNotFoundError:
+        raise Exception("Please install G++ before using the -T flag")
+    print(" ".join([compiler, "-fopenmp", "v4.1_turbo.cpp", f"-DmaxLines={lines}", f"-Dboard=bitmap({bitmap&0xFFFFFFFFFFFFFFFF}llu,{bitmap>>64}llu)", f"-DpatternStr=\"{pattern}\"", f"-DallowHold={hold}", f"-Dglue={glue}", f"-DconvertToFumen={convertToFumen}", "-O3", "-std=c++11", "-o", "v4"]))
+    if (load180Kicks!=""):
+        output=subprocess.run([compiler, "-fopenmp", "v4.1_turbo.cpp", f"-DmaxLines={lines}", f"-Dboard=bitmap({bitmap&0xFFFFFFFFFFFFFFFF}llu,{bitmap>>64}llu)", f"-DpatternStr=\"{pattern}\"", f"-DallowHold={hold}", f"-Dglue={glue}", f"-DconvertToFumen={convertToFumen}", load180Kicks, "-O3", "-std=c++11", "-o", "v4"],capture_output=True)
+    else:
+        output=subprocess.run([compiler, "-fopenmp", "v4.1_turbo.cpp", f"-DmaxLines={lines}", f"-Dboard=bitmap({bitmap&0xFFFFFFFFFFFFFFFF}llu,{bitmap>>64}llu)", f"-DpatternStr=\"{pattern}\"", f"-DallowHold={hold}", f"-Dglue={glue}", f"-DconvertToFumen={convertToFumen}", "-O3", "-std=c++11", "-o", "v4"],capture_output=True)
+    if (output.stderr!=b''):
+        raise Exception("Compilation error:\n\t"+output.stderr.decode())
+
+    print("Finished compiling, running...")#
+    output=subprocess.run(["./v4"],capture_output=True)
+elif (args.big_input):#custom-compiled
     print("Bitmap created\nCompiling finder...")#
     try:#trying clang first because it's generally faster (at least for me)
         subprocess.run(["clang++"],capture_output=True)
@@ -78,11 +97,11 @@ if (args.big_input):#custom-compiled
             compiler = "g++"
             print("Using G++")#
         except FileNotFoundError:
-            raise Exception("Please install either G++ or Clang++ before using the -B flag")
+            raise Exception("Please install either Clang++ or G++ before using the -B flag")
     if (load180Kicks!=""):
-        output=subprocess.run([compiler, "v4.1_demo.cpp", f"-DmaxLines={lines}", f"-Dboard=bitmap({bitmap&0xFFFFFFFFFFFFFFFF}llu,{bitmap>>64}llu)", f"-DpatternStr=\"{pattern}\"", f"-DallowHold={hold}", f"-Dglue={glue}", load180Kicks, "-O3", "-std=c++11", "-o", "v4"],capture_output=True)
+        output=subprocess.run([compiler, "v4.1_demo.cpp", f"-DmaxLines={lines}", f"-Dboard=bitmap({bitmap&0xFFFFFFFFFFFFFFFF}llu,{bitmap>>64}llu)", f"-DpatternStr=\"{pattern}\"", f"-DallowHold={hold}", f"-Dglue={glue}", f"-DconvertToFumen={convertToFumen}", load180Kicks, "-O3", "-std=c++11", "-o", "v4"],capture_output=True)
     else:
-        output=subprocess.run([compiler, "v4.1_demo.cpp", f"-DmaxLines={lines}", f"-Dboard=bitmap({bitmap&0xFFFFFFFFFFFFFFFF}llu,{bitmap>>64}llu)", f"-DpatternStr=\"{pattern}\"", f"-DallowHold={hold}", f"-Dglue={glue}", "-O3", "-std=c++11", "-o", "v4"],capture_output=True)
+        output=subprocess.run([compiler, "v4.1_demo.cpp", f"-DmaxLines={lines}", f"-Dboard=bitmap({bitmap&0xFFFFFFFFFFFFFFFF}llu,{bitmap>>64}llu)", f"-DpatternStr=\"{pattern}\"", f"-DallowHold={hold}", f"-Dglue={glue}", f"-DconvertToFumen={convertToFumen}", "-O3", "-std=c++11", "-o", "v4"],capture_output=True)
     if (output.stderr!=b''):
         raise Exception("Compilation error:\n\t"+output.stderr.decode())
 
@@ -91,7 +110,7 @@ if (args.big_input):#custom-compiled
 else:#not-custom compiled
     print("Bitmap created")#
     try:
-        subprocess.run(["./v4_precompiled"])
+        subprocess.run(["./v4_precompiled"])#returns immediately if exists, throws error if does not exist
     except FileNotFoundError:
         print("Executable not found, compiling...")
         try:#trying clang first because it's generally faster (at least for me)

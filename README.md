@@ -1,4 +1,4 @@
-IMPORTANT: If you are a Mac or linux user, this package requires either Clang++ or G++ to function. Executables for Mac and linux coming soon.
+IMPORTANT: If you are a Mac or linux user, this package requires either Clang++ or G++ to function.
 
 Sfaster works similarly to the sfinder `path` tool, except that it runs considerably faster, and does not run into memory issues. Sfaster is capable of quickly handling many smaller tasks, as well as taking on large tasks that sfinder would fail to complete.
 
@@ -23,10 +23,12 @@ Sfaster doesn't have some of the more niche flags in sfinder yet, but it current
     * Warning: the 180 kicktables use the same logic as the other kicktables, but they haven't been thoroughly tested yet.
 Here are the flags unique to Sfinder:
 * `-F`, `--format-solution` Specify whether solutions should be written as fumens or strings. Choose `fumen` or `string`, defaults to `fumen`.
-* `-B`, Add this flag if you're processing a very large input (ie: many pieces). It should run slightly faster, but will take a few seconds to recompile before it starts. Clang++/G++ is requires to use this flag. Due to how compilers work, there's a chance this version could have a significantly different (faster or even slower) runtime than the default version.
+* `-B`, `--big-input` Add this flag if you're processing a very large input (ie: many pieces). It should run slightly faster, but will take a few seconds to recompile before it starts. Clang++/G++ is required to use this flag. Due to how compilers work, there's a chance this version could have a significantly different (faster or even slower) runtime than the default version.
+* `-T`, `--turbo` Run in Turbo mode (experimental): uses all the cores of your computer to run large inputs several times faster than normal. Works best if you don't have other programs open. This flag supersedes `-B`; the program will custom-compile regardless of whether the `-B` flag is included. G++ is required to use this flag.
 
 ### NEW AND UPCOMING FEATURES
 #### New features:
+* Multithreading (should increase the speed significantly)
 * Prune impossible solutions
 * Piece restrictions
 * Variable-height PCs (not just 4L)
@@ -37,7 +39,6 @@ Here are the flags unique to Sfinder:
 * Version for people without Clang++/G++ (or version that doesn't need to recompile every time)
 * Faster fumenify (or option to output directly as fumens)
 #### Coming soon:
-* Multithreading (should increase the speed significantly)
 * Version to run many boards back to back (eg: every page in fumen)
 * Custom output destination (`-o`)
 #### Coming later:
