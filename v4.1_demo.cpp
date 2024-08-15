@@ -30,7 +30,7 @@ using namespace std::chrono;
 #endif
 
 #ifndef patternStr
-#define patternStr "*!*!*!*!*!*!*!*!*!*!*!*!*!*!*!*!*!*!*!"//std::vector<patternNode>{patternNode(-1,1),patternNode(-1,1),patternNode(-1,1),patternNode(-1,1),patternNode(-1,1),patternNode(-1,1),patternNode(-1,1),patternNode(-1,1),patternNode(-1,1),patternNode(-1,1),patternNode(-1,1),patternNode(-1,1),patternNode(-1,1),patternNode(-1,1),patternNode(-1,1)}//not very elegant
+#define patternStr "*p1*p1*p1*p1*p1*p1*p1*p1*p1*p1*p1*p1*p1*p1*p1*p1*p1*p1*p1*p1"//std::vector<patternNode>{patternNode(-1,1),patternNode(-1,1),patternNode(-1,1),patternNode(-1,1),patternNode(-1,1),patternNode(-1,1),patternNode(-1,1),patternNode(-1,1),patternNode(-1,1),patternNode(-1,1),patternNode(-1,1),patternNode(-1,1),patternNode(-1,1),patternNode(-1,1),patternNode(-1,1)}//not very elegant
 #endif
 
 #ifndef allowHold
