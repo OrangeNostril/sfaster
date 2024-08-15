@@ -75,7 +75,6 @@ if (args.turbo):#turbo mode
         print("Using G++")#
     except FileNotFoundError:
         raise Exception("Please install G++ before using the -T flag")
-    print(" ".join([compiler, "-fopenmp", "v4.1_turbo.cpp", f"-DmaxLines={lines}", f"-Dboard=bitmap({bitmap&0xFFFFFFFFFFFFFFFF}llu,{bitmap>>64}llu)", f"-DpatternStr=\"{pattern}\"", f"-DallowHold={hold}", f"-Dglue={glue}", f"-DconvertToFumen={convertToFumen}", "-O3", "-std=c++11", "-o", "v4"]))
     if (load180Kicks!=""):
         output=subprocess.run([compiler, "-fopenmp", "v4.1_turbo.cpp", f"-DmaxLines={lines}", f"-Dboard=bitmap({bitmap&0xFFFFFFFFFFFFFFFF}llu,{bitmap>>64}llu)", f"-DpatternStr=\"{pattern}\"", f"-DallowHold={hold}", f"-Dglue={glue}", f"-DconvertToFumen={convertToFumen}", load180Kicks, "-O3", "-std=c++11", "-o", "v4"],capture_output=True)
     else:
