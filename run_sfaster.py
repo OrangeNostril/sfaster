@@ -67,7 +67,26 @@ bitmap=0
 for i in range(len(inputBoard)):
     if (inputBoard[i]!='_'):
         bitmap|=1<<i<<(i//10)
-if (args.turbo):#turbo mode
+
+if (args.turbo and not args.big_input):#turbo_precompiled
+    print("Bitmap created\nTurbo mode")
+    try:
+        subprocess.run(["./v4_precompiled_turbo"])#returns immediately if exists, throws error if does not exist
+    except FileNotFoundError:
+        print("Executable not found, compiling...")
+        try:
+            subprocess.run(["g++"],capture_output=True)
+            compiler = "g++"
+            print("Using G++")#
+        except FileNotFoundError:
+            raise Exception("Couldn't find G++ or Clang++\nCouldn't find or compile executable")
+        subprocess.run([compiler, "-fopenmp", "v4.1_precompiled_turbo.cpp", "-O3", "-std=c++11", "-o", "v4_precompiled_turbo"])
+    print("Running finder...")#
+    if (load180Kicks!=""):#v4.1_compiled.exe board, pattern, maxLines, allowHold, glue, convertToFumen, load180Kicks
+        output=subprocess.run(["./v4_precompiled_turbo", f"{bitmap&0xFFFFFFFFFFFFFFFF},{bitmap>>64}", f'{pattern}', str(lines), hold, glue, convertToFumen, load180Kicks],capture_output=True)
+    else:
+        output=subprocess.run(["./v4_precompiled_turbo", f"{bitmap&0xFFFFFFFFFFFFFFFF},{bitmap>>64}", f'{pattern}', str(lines), hold, glue, convertToFumen],capture_output=True)
+elif (args.turbo):#turbo mode
     print("Bitmap created\nTurbo mode\nCompiling finder...")#
     try:#only trying g++ because clang++ isn't automatically compatible with OpenMP
         subprocess.run(["g++"],capture_output=True)
@@ -123,7 +142,7 @@ else:#not-custom compiled
                 print("Using G++")#
             except FileNotFoundError:
                 raise Exception("Couldn't find G++ or Clang++\nCouldn't find or compile executable")
-        subprocess.run([compiler, "v4.1_precompiled.cpp","-O3", "-std=c++11", "-o", "v4_precompiled"])
+        subprocess.run([compiler, "v4.1_precompiled.cpp", "-O3", "-std=c++11", "-o", "v4_precompiled"])
     print("Running finder...")#
     if (load180Kicks!=""):#v4.1_compiled.exe board, pattern, maxLines, allowHold, glue, convertToFumen, load180Kicks
         output=subprocess.run(["./v4_precompiled", f"{bitmap&0xFFFFFFFFFFFFFFFF},{bitmap>>64}", f'{pattern}', str(lines), hold, glue, convertToFumen, load180Kicks],capture_output=True)

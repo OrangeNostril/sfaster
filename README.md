@@ -24,7 +24,7 @@ Sfaster doesn't have some of the more niche flags in sfinder yet, but it current
 Here are the flags unique to Sfinder:
 * `-F`, `--format-solution` Specify whether solutions should be written as fumens or strings. Choose `fumen` or `string`, defaults to `fumen`.
 * `-B`, `--big-input` Add this flag if you're processing a very large input (ie: many pieces). It should run slightly faster, but will take a few seconds to recompile before it starts. Clang++/G++ is required to use this flag. Due to how compilers work, there's a chance this version could have a significantly different (faster or even slower) runtime than the default version.
-* `-T`, `--turbo` Run in Turbo mode (experimental): uses all the cores of your computer to run large inputs several times faster than normal. Works best if you don't have other programs open. This flag supersedes `-B`; the program will custom-compile regardless of whether the `-B` flag is included. G++ is required to use this flag.
+* `-T`, `--turbo` Run in Turbo mode: uses all the cores of your computer to run large inputs several times faster than normal. Works best if you don't have other programs open. G++ is required to use this flag. (Note: This flag pairs well with `-B`.)
 
 ### NEW AND UPCOMING FEATURES
 #### New features:
@@ -32,7 +32,7 @@ Here are the flags unique to Sfinder:
 * Prune impossible solutions
 * Piece restrictions
 * Variable-height PCs (not just 4L)
-* Allow hold (--hold use)
+* Allow hold (`--hold use`)
 * Option to output fumens instead of strings
 * Command line flags (like `-t`, `-c`)
 * Option to enable 180 spins with either the jstris or tetrio kicktables
