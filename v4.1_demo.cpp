@@ -51,6 +51,10 @@ using namespace std::chrono;
 #define outPath "output.txt"
 #endif
 
+#ifndef b2bReq //lowest bit: Ir0, 2nd lowest: any T
+#define b2bReq 0
+#endif
+
 struct bitmap{
     unsigned long long val[2];
     bitmap() {}
@@ -212,6 +216,7 @@ std::string stringify(std::vector<piece>& pieceList){//debug tool
             }
         }
     }
+    printf("%10s\n%10s\n%10s\n%10s\n",solStr.c_str(),solStr.c_str()+10,solStr.c_str()+20,solStr.c_str()+30);
     return solStr;
 }
 void writeSolution(std::vector<piece>& pieceList){//stringifies and writes one solution to file
@@ -455,7 +460,7 @@ bool findPath(std::map<int,piece>& solution, bitmap matrix, int clearedRows, uns
     if (placedMap==(1llu<<solution.size())-1) return true;//if all pieces placed
 
     /*if (!(matrix==wall<<10)){//debug
-    //if (__builtin_popcountll(matrix[0])>6+4){//6 for empty (just wall)
+    /if (__builtin_popcountll(matrix[0])>6+4){//6 for empty (just wall)
         printf("pick %d from 0x%x, hold: 0x%x ",pattern->pick,pattern->from,hold->from);//debug
         printMatrix(matrix);//
         printf("");//
@@ -506,6 +511,37 @@ bool findPath(std::map<int,piece>& solution, bitmap matrix, int clearedRows, uns
         if (srsPos>=0) adjusted<<=srsPos;
         else adjusted>>=-srsPos;
         if (!(adjusted&(matrix<<11|0x3FF))) continue;//would be placing a floating piece
+
+        if (b2bReq){//extra conditions if there's any b2b requirements
+            int bottom=pos-pos%11;
+            unsigned long long testRows = ((matrix|adjusted)>>bottom)[0];
+            if (!((0x3FFllu&~testRows)
+                && (0x3FFllu<<11&~testRows)
+                && (0x3FFllu<<22&~testRows)
+                && (0x3FFllu<<33&~testRows))
+            ){//if there aren't empty spaces on every row the piece could be touching (aka any line clears)
+                if (piece==0 && (b2bReq&1)){
+                    if (0xfffffffffffllu&~((matrix|adjusted)>>bottom)[0]) continue;//if not clearing a tetris
+                }
+                else if (piece==5 && (b2bReq&2)){//change to &6 later?
+                    //check if it's a tspin (add tspin mini later)
+                    if (srsRot==0){
+                        if (!(matrix(pos+11) && matrix(pos+13) && ((pos-11<0||matrix(pos-11)) || (pos-9<0||matrix(pos-9))))) continue;
+                    }
+                    else if (srsRot==1){
+                        if (!(matrix(pos+23) && matrix(pos+1) && (matrix(pos+21) || (pos-1<0||matrix(pos-1))))) continue;
+                    }
+                    else if (srsRot==2){
+                        if (!((pos-1<0||matrix(pos-1)) && matrix(pos+1) && (matrix(pos+21) || matrix(pos+23)))) continue;
+                    }
+                    else{//srsRot==3
+                        if (!((pos-1<0||matrix(pos-1)) && matrix(pos+21) && (matrix(pos+1) || matrix(pos+23)))) continue;
+                    }
+                }
+                else continue;//clearing rows when it shouldn't
+            }
+        }
+
         if (unplace(piece,srsRot,pos+startShifts[it->second.id&0x3FF][0],matrix)
             || (startShifts[it->second.id&0x3FF].size()==2 && unplace(piece,srsRot+2,pos+startShifts[it->second.id&0x3FF][1],matrix))
         ){//if can be placed
@@ -572,7 +608,7 @@ bool checkSolution(std::vector<piece>& pieceList){//placing pieces FORWARD
     }
 }
 
-void findSolutions(bitmap matrix, int tracer, std::array<std::list<piece>,10>& fragments, std::array<int,10>& heights, std::vector<piece>& pieceList, std::array<int,maxLines>& dependencyMap, std::array<int,maxLines>& dependencyMapFlipped, std::array<char,7>& pieceLimits){
+void findSolutions(bitmap matrix, int tracer, std::array<std::list<piece>,10>& fragments, std::array<int,10>& heights, std::vector<piece>& pieceList, std::array<int,maxLines>& dependencyMap, std::array<int,maxLines>& dependencyMapFlipped, std::array<char,7>& pieceLimits, char b2b){
     //printMatrix(matrix,12);//debug
 
     for (int i=0;i<maxLines;i++){
@@ -585,18 +621,23 @@ void findSolutions(bitmap matrix, int tracer, std::array<std::list<piece>,10>& f
     if (matrix==bitmap(0xFFFFFFFFFFFFFFFFllu,0xFFFFFFFFFFFFFFFFllu)){//can't do matrix[1]==0xFFFFFFFFFFFFFFFFllu if maxLines<=4
         //solutions.push_back(pieceList);
         //printf("new solution\n");//
-        if (checkSolution(pieceList)){
+        if ((!b2bReq || (b2bReq&b2b)) && checkSolution(pieceList)){
             writeSolution(pieceList);//success
             solCount++;
         }
         return;
     }
+    int saveTracer=tracer;
     while (matrix(tracer)) {
         tracer++;
     }
     //guaranteed up/right open (except gray minos)
     int col=tracer%11;
     char row=tracer/11;
+    if (b2bReq && (saveTracer%11>col || tracer>=saveTracer+10)){
+        if (!(b2bReq&b2b)) return;//if no b2b req met
+        b2b=0;
+    }
     pieceList.emplace_back();
     std::array<int,maxLines> dependencyMapBackup = dependencyMap;
     std::array<int,maxLines> dependencyMapFlippedBackup = dependencyMapFlipped;
@@ -641,7 +682,9 @@ void findSolutions(bitmap matrix, int tracer, std::array<std::list<piece>,10>& f
                     dependencyMapFlipped[i]|=it->filledMap;
                 }
             }
-            findSolutions(matrix|(bitmap)((save.mat&(bitmap)0x3FFllu)<<tracer), tracer+1, fragments, heights, pieceList, dependencyMap,dependencyMapFlipped,pieceLimits);
+            //piece ID guide: piece | SRSrot<<8 | tracer<<10, eg: Sr1 placed on 15=> 4|1<<8|15<<10 (SRSrot matches r here)
+            int newB2b=b2b|((save.id&0x3FF)==(1<<8))|((save.id&0xFF)==5?2:0);//adding Ir0/T pieces
+            findSolutions(matrix|(bitmap)((save.mat&(bitmap)0x3FFllu)<<tracer), tracer+1, fragments, heights, pieceList, dependencyMap, dependencyMapFlipped, pieceLimits, newB2b);
             dependencyMap=dependencyMapBackup;
             dependencyMapFlipped=dependencyMapFlippedBackup;
             it->filledMap^=1<<row;//told you
@@ -684,7 +727,7 @@ void findSolutions(bitmap matrix, int tracer, std::array<std::list<piece>,10>& f
         pieceList.back().mat=(bitmap(0xF)<<tracer);
         pieceList.back().id=tracer<<10;
         pieceLimits[0]--;
-        findSolutions(matrix|(bitmap(0xF)<<tracer), tracer+4, fragments, heights, pieceList, dependencyMap, dependencyMapFlipped, pieceLimits);//4 minos
+        findSolutions(matrix|(bitmap(0xF)<<tracer), tracer+4, fragments, heights, pieceList, dependencyMap, dependencyMapFlipped, pieceLimits, b2b);//4 minos
         pieceLimits[0]++;
         heights[col]--;
         heights[col+1]--;
@@ -698,7 +741,7 @@ void findSolutions(bitmap matrix, int tracer, std::array<std::list<piece>,10>& f
         pieceList.back().id=1|3<<8|tracer<<10;
         fragments[col+1].emplace_front(bitmap(0x801),1|3<<8|tracer<<10,1<<row);
         pieceLimits[1]--;
-        findSolutions(matrix|(bitmap(0x3)<<tracer), tracer+2, fragments, heights, pieceList, dependencyMap, dependencyMapFlipped, pieceLimits);//2 minos
+        findSolutions(matrix|(bitmap(0x3)<<tracer), tracer+2, fragments, heights, pieceList, dependencyMap, dependencyMapFlipped, pieceLimits, b2b);//2 minos
         pieceLimits[1]++;
         fragments[col+1].pop_front();
         heights[col]--;
@@ -713,7 +756,7 @@ void findSolutions(bitmap matrix, int tracer, std::array<std::list<piece>,10>& f
         fragments[col+1].emplace_front(bitmap(0x3),4|tracer<<10,1<<row);
         if (pieceLimits[4]){
             pieceLimits[4]--;
-            findSolutions(matrix|(bitmap(0x3)<<tracer), tracer+2, fragments, heights, pieceList, dependencyMap, dependencyMapFlipped, pieceLimits);//Sr0 - 2 minos
+            findSolutions(matrix|(bitmap(0x3)<<tracer), tracer+2, fragments, heights, pieceList, dependencyMap, dependencyMapFlipped, pieceLimits, b2b);//Sr0 - 2 minos
             pieceLimits[4]++;
         }
         pieceList.back().mat=(bitmap(0x7)<<tracer);
@@ -722,7 +765,7 @@ void findSolutions(bitmap matrix, int tracer, std::array<std::list<piece>,10>& f
         fragments[col+1].front().id=5|tracer<<10;
         if (pieceLimits[5]){
             pieceLimits[5]--;
-            findSolutions(matrix|(bitmap(0x7)<<tracer), tracer+3, fragments, heights, pieceList, dependencyMap, dependencyMapFlipped, pieceLimits);//Tr2 - 3 minos
+            findSolutions(matrix|(bitmap(0x7)<<tracer), tracer+3, fragments, heights, pieceList, dependencyMap, dependencyMapFlipped, pieceLimits, b2b|2);//Tr2 - 3 minos
             pieceLimits[5]++;
         }
         fragments[col+1].pop_front();
@@ -738,7 +781,7 @@ void findSolutions(bitmap matrix, int tracer, std::array<std::list<piece>,10>& f
         pieceList.back().id=2|tracer<<10;
         fragments[col+2].emplace_front(bitmap(0x1),2|tracer<<10,1<<row);
         pieceLimits[2]--;
-        findSolutions(matrix|(bitmap(0x7)<<tracer), tracer+3, fragments, heights, pieceList, dependencyMap, dependencyMapFlipped, pieceLimits);//Lr3 - 3 minos
+        findSolutions(matrix|(bitmap(0x7)<<tracer), tracer+3, fragments, heights, pieceList, dependencyMap, dependencyMapFlipped, pieceLimits, b2b);//Lr3 - 3 minos
         pieceLimits[2]++;
         fragments[col+2].pop_front();
         heights[col]--;
@@ -754,7 +797,7 @@ void findSolutions(bitmap matrix, int tracer, std::array<std::list<piece>,10>& f
             pieceList.back().id=1|2<<8|tracer<<10;
             fragments[col-2].emplace_front(bitmap(0x7),1|2<<8|tracer<<10,1<<row);
             pieceLimits[1]--;
-            findSolutions(matrix|(bitmap(0x1)<<tracer), tracer+1, fragments, heights, pieceList, dependencyMap, dependencyMapFlipped, pieceLimits);//1 mino
+            findSolutions(matrix|(bitmap(0x1)<<tracer), tracer+1, fragments, heights, pieceList, dependencyMap, dependencyMapFlipped, pieceLimits, b2b);//1 mino
             pieceLimits[1]++;
             fragments[col-2].pop_front();
             heights[col-2]--;
@@ -768,7 +811,7 @@ void findSolutions(bitmap matrix, int tracer, std::array<std::list<piece>,10>& f
             pieceList.back().id=4|1<<8|tracer<<10;
             fragments[col-1].emplace_front(bitmap(0x803),4|1<<8|tracer<<10,1<<row);
             pieceLimits[4]--;
-            findSolutions(matrix|(bitmap(0x1)<<tracer), tracer+1, fragments, heights, pieceList, dependencyMap, dependencyMapFlipped, pieceLimits);//1 mino
+            findSolutions(matrix|(bitmap(0x1)<<tracer), tracer+1, fragments, heights, pieceList, dependencyMap, dependencyMapFlipped, pieceLimits, b2b);//1 mino
             pieceLimits[4]++;
             fragments[col-1].pop_front();
             heights[col-1]-=2;
@@ -782,7 +825,7 @@ void findSolutions(bitmap matrix, int tracer, std::array<std::list<piece>,10>& f
             pieceList.back().id=6|tracer<<10;
             fragments[col-1].emplace_front(bitmap(0x3),6|tracer<<10,1<<row);
             pieceLimits[6]--;
-            findSolutions(matrix|(bitmap(0x3)<<tracer), tracer+2, fragments, heights, pieceList, dependencyMap, dependencyMapFlipped, pieceLimits);//2 minos
+            findSolutions(matrix|(bitmap(0x3)<<tracer), tracer+2, fragments, heights, pieceList, dependencyMap, dependencyMapFlipped, pieceLimits, b2b);//2 minos
             pieceLimits[6]++;
             fragments[col-1].pop_front();
             heights[col-1]--;
@@ -797,7 +840,7 @@ void findSolutions(bitmap matrix, int tracer, std::array<std::list<piece>,10>& f
             pieceList.back().id=5|2<<8|tracer<<10;
             fragments[col-1].emplace_front(bitmap(0x7),5|2<<8|tracer<<10,1<<row);
             pieceLimits[5]--;
-            findSolutions(matrix|(bitmap(0x1)<<tracer), tracer+1, fragments, heights, pieceList, dependencyMap, dependencyMapFlipped, pieceLimits);//1 mino
+            findSolutions(matrix|(bitmap(0x1)<<tracer), tracer+1, fragments, heights, pieceList, dependencyMap, dependencyMapFlipped, pieceLimits, b2b|2);//1 mino
             pieceLimits[5]++;
             fragments[col-1].pop_front();
             heights[col-1]--;
@@ -811,7 +854,7 @@ void findSolutions(bitmap matrix, int tracer, std::array<std::list<piece>,10>& f
             pieceList.back().id=3|tracer<<10;
             fragments[col].emplace_front(bitmap(0x3),3|tracer<<10,1<<row);
             pieceLimits[3]--;
-            findSolutions(matrix|(bitmap(0x3)<<tracer), tracer+2, fragments, heights, pieceList, dependencyMap, dependencyMapFlipped, pieceLimits);//2 minos
+            findSolutions(matrix|(bitmap(0x3)<<tracer), tracer+2, fragments, heights, pieceList, dependencyMap, dependencyMapFlipped, pieceLimits, b2b);//2 minos
             pieceLimits[3]++;
             fragments[col].pop_front();
             heights[col]-=2;
@@ -824,7 +867,7 @@ void findSolutions(bitmap matrix, int tracer, std::array<std::list<piece>,10>& f
             pieceList.back().id=6|1<<8|tracer<<10;
             fragments[col].emplace_front(bitmap(0x1003),6|1<<8|tracer<<10,1<<row);
             pieceLimits[6]--;
-            findSolutions(matrix|(bitmap(0x1)<<tracer), tracer+1, fragments, heights, pieceList, dependencyMap, dependencyMapFlipped, pieceLimits);//1 mino
+            findSolutions(matrix|(bitmap(0x1)<<tracer), tracer+1, fragments, heights, pieceList, dependencyMap, dependencyMapFlipped, pieceLimits, b2b);//1 mino
             pieceLimits[6]++;
             fragments[col].pop_front();
             heights[col+1]-=2;
@@ -839,7 +882,7 @@ void findSolutions(bitmap matrix, int tracer, std::array<std::list<piece>,10>& f
             fragments[col].emplace_front(bitmap(0x1),1|tracer<<10,1<<row);
             if (pieceLimits[1]){
                 pieceLimits[1]--;
-                findSolutions(matrix|(bitmap(0x7)<<tracer), tracer+3, fragments, heights, pieceList, dependencyMap, dependencyMapFlipped, pieceLimits);//Jr1 - 3 minos
+                findSolutions(matrix|(bitmap(0x7)<<tracer), tracer+3, fragments, heights, pieceList, dependencyMap, dependencyMapFlipped, pieceLimits, b2b);//Jr1 - 3 minos
                 pieceLimits[1]++;
             }
             pieceList.back().mat=(bitmap(0x1)<<tracer);
@@ -848,7 +891,7 @@ void findSolutions(bitmap matrix, int tracer, std::array<std::list<piece>,10>& f
             fragments[col].front().id=2|2<<8|tracer<<10;
             if (pieceLimits[2]){
                 pieceLimits[2]--;
-                findSolutions(matrix|(bitmap(0x1)<<tracer), tracer+1, fragments, heights, pieceList, dependencyMap, dependencyMapFlipped, pieceLimits);//Lr1 - 1 mino
+                findSolutions(matrix|(bitmap(0x1)<<tracer), tracer+1, fragments, heights, pieceList, dependencyMap, dependencyMapFlipped, pieceLimits, b2b);//Lr1 - 1 mino
                 pieceLimits[2]++;
             }
             fragments[col].pop_front();
@@ -866,7 +909,7 @@ void findSolutions(bitmap matrix, int tracer, std::array<std::list<piece>,10>& f
                 fragments[col-1].emplace_front(bitmap(0x1003),5|3<<8|tracer<<10,1<<row);
                 if (pieceLimits[5]){
                     pieceLimits[5]--;
-                    findSolutions(matrix|(bitmap(0x1)<<tracer), tracer+1, fragments, heights, pieceList, dependencyMap, dependencyMapFlipped, pieceLimits);//Tr1 - 1 mino
+                    findSolutions(matrix|(bitmap(0x1)<<tracer), tracer+1, fragments, heights, pieceList, dependencyMap, dependencyMapFlipped, pieceLimits, b2b|2);//Tr1 - 1 mino
                     pieceLimits[5]++;
                 }
                 fragments[col-1].pop_front();
@@ -875,7 +918,7 @@ void findSolutions(bitmap matrix, int tracer, std::array<std::list<piece>,10>& f
                 fragments[col].emplace_front(bitmap(0xC01),2|3<<8|tracer<<10,1<<row);
                 if (pieceLimits[2]){
                     pieceLimits[2]--;
-                    findSolutions(matrix|(bitmap(0x1)<<tracer), tracer+1, fragments, heights, pieceList, dependencyMap, dependencyMapFlipped, pieceLimits);//Lr2 - 1 mino
+                    findSolutions(matrix|(bitmap(0x1)<<tracer), tracer+1, fragments, heights, pieceList, dependencyMap, dependencyMapFlipped, pieceLimits, b2b);//Lr2 - 1 mino
                     pieceLimits[2]++;
                 }
                 fragments[col].pop_front();
@@ -890,7 +933,7 @@ void findSolutions(bitmap matrix, int tracer, std::array<std::list<piece>,10>& f
                 fragments[col].emplace_front(bitmap(0x801),2|1<<8|tracer<<10,1<<row);
                 if (pieceLimits[2]){
                     pieceLimits[2]--;
-                    findSolutions(matrix|(bitmap(0x3)<<tracer), tracer+2, fragments, heights, pieceList, dependencyMap, dependencyMapFlipped, pieceLimits);//Lr0 - 2 minos
+                    findSolutions(matrix|(bitmap(0x3)<<tracer), tracer+2, fragments, heights, pieceList, dependencyMap, dependencyMapFlipped, pieceLimits, b2b);//Lr0 - 2 minos
                     pieceLimits[2]++;
                 }
                 pieceList.back().mat=(bitmap(0x1)<<tracer);
@@ -899,7 +942,7 @@ void findSolutions(bitmap matrix, int tracer, std::array<std::list<piece>,10>& f
                 fragments[col].front().id=5|1<<8|tracer<<10;
                 if (pieceLimits[5]){
                     pieceLimits[5]--;
-                    findSolutions(matrix|(bitmap(0x1)<<tracer), tracer+1, fragments, heights, pieceList, dependencyMap, dependencyMapFlipped, pieceLimits);//Tr3 - 1 mino
+                    findSolutions(matrix|(bitmap(0x1)<<tracer), tracer+1, fragments, heights, pieceList, dependencyMap, dependencyMapFlipped, pieceLimits, b2b|2);//Tr3 - 1 mino
                     pieceLimits[5]++;
                 }
                 pieceList.back().mat=(bitmap(0x1)<<tracer);
@@ -908,7 +951,7 @@ void findSolutions(bitmap matrix, int tracer, std::array<std::list<piece>,10>& f
                 fragments[col].front().id=1|1<<8|tracer<<10;
                 if (pieceLimits[1]){
                     pieceLimits[1]--;
-                    findSolutions(matrix|(bitmap(0x1)<<tracer), tracer+1, fragments, heights, pieceList, dependencyMap, dependencyMapFlipped, pieceLimits);//Jr2 - 1 mino
+                    findSolutions(matrix|(bitmap(0x1)<<tracer), tracer+1, fragments, heights, pieceList, dependencyMap, dependencyMapFlipped, pieceLimits, b2b);//Jr2 - 1 mino
                     pieceLimits[1]++;
                 }
                 fragments[col].pop_front();
@@ -922,7 +965,7 @@ void findSolutions(bitmap matrix, int tracer, std::array<std::list<piece>,10>& f
                 pieceList.back().id=1<<8|tracer<<10;
                 fragments[col].emplace_front(bitmap(0x400801),1<<8|tracer<<10,1<<row);
                 pieceLimits[0]--;
-                findSolutions(matrix|(bitmap(0x1)<<tracer), tracer+1, fragments, heights, pieceList, dependencyMap, dependencyMapFlipped, pieceLimits);//1 mino
+                findSolutions(matrix|(bitmap(0x1)<<tracer), tracer+1, fragments, heights, pieceList, dependencyMap, dependencyMapFlipped, pieceLimits, b2b|1);//1 mino
                 pieceLimits[0]++;
                 fragments[col].pop_front();
                 heights[col]-=4;
@@ -1047,8 +1090,7 @@ int main() {
     auto timer3=duration_cast<microseconds>(timer2-timer1);
 
     timer1=high_resolution_clock::now();
-    findSolutions(testMap, 0, fragments, heights, pieceList, dependencyMap, dependencyMapFlipped, pieceLimits);/* FUNCTION CALL */
-    //std::thread thread_obj(findSolutions, testMap, 0, fragments, heights, pieceList, dependencyMap, dependencyMapFlipped, pieceLimits);
+    findSolutions(testMap, 0, fragments, heights, pieceList, dependencyMap, dependencyMapFlipped, pieceLimits, 0);/* FUNCTION CALL */
     timer2=high_resolution_clock::now();
     timer3=duration_cast<microseconds>(timer2-timer1);
     printf("%llu us\n",timer3.count());//millionths of a second
@@ -1058,3 +1100,7 @@ int main() {
     //printf("Exiting...\n");//
     return 0;
 }
+/*
+Found 15,829,458 solutions in 43:06s
+Found 1,343,739 solutions in 57:04s
+*/

@@ -27,6 +27,8 @@ Here are the flags unique to Sfinder:
 * `-B`, `--big-input` Add this flag if you're processing a very large input (ie: many pieces). It should typically run faster, but will take a few seconds to recompile before it starts. Clang++/G++ is required to use this flag. Due to how compilers work, there's a chance this version could have a significantly different (faster or even slower) runtime than the default version.
 * `-T`, `--turbo` Run in Turbo mode: uses all the cores of your computer to run large inputs several times faster than normal. Works best if you don't have other programs open.
     * G++ (not Clang++) is required to use both `-B` and `-T` simultaneously. No compiler is needed to run `-T` alone.
+* `-b`, `--b2b` Set b2b restrictions. Choose `"tetris"` to return solutions where the only clears are tetrises, `"tspin"` to return solutions where the only clears are tspins, `"b2b"` to return solutions where b2b is maintained (either tspins or tetrises), or `"none"` for no restrictions. Defaults to `"none"`.
+    * Currently setting to `"tspin"` guarantees no solutions since you can't PC with only tspins, but a mode that doesn't require ending with a PC is coming soon. 
 
 ### NEW AND UPCOMING FEATURES
 #### New features:
@@ -41,7 +43,9 @@ Here are the flags unique to Sfinder:
 * Faster fumenify (or option to output directly as fumens)
 * Multithreading (should increase the speed significantly)
 * Custom output destination (`-o`)
+* B2b restrictions (eg: b2b clears only)
 #### Coming soon:
+* Version where ending in PC is not required (similar to sfinder `setup`)
 * Version to run many boards back to back (eg: every page in fumen)
 #### Coming later:
 * Faster setup (ie: new non-python version of run_sfaster)
