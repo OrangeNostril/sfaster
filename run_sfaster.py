@@ -20,14 +20,14 @@ def parseInputBoard(inputBoard:str,lines:int)->str:
         raise args.argumentParseError("Please ensure your board has a multiple of 10 spaces in it")
 
     if (len(inputBoard)<lines*10):#(probably?) needed because inputs are vertically flipped for v4
-        inputBoard="".join(["_"]*(10*lines-len(inputBoard)))+inputBoard
+        inputBoard="_"*(10*lines-len(inputBoard))+inputBoard
     return inputBoard
 
 parser = argparse.ArgumentParser(description="Sfaster flags")
 
 parser.add_argument("inputBoard", nargs="?", default="", help="Input board string")
 parser.add_argument("-t", "--tetfu", help="Input board string")
-parser.add_argument("-c", "--clear-line", type=int, choices=range(1,11), default=4, help="Number of lines to clear (1-10)")
+parser.add_argument("-c", "--clear-line", type=int, choices=[-1]+list(range(1,11)), default=-1, help="Number of lines to clear (1-10)")
 parser.add_argument("-H", "--hold", choices=["avoid", "use"], default="use",help="Hold piece preference")
 parser.add_argument("-p", "--patterns", type=str, help="Pattern string to parse")
 parser.add_argument("-s", "--split", choices=["yes", "no"], default="yes", help="Split preference")
@@ -37,16 +37,44 @@ parser.add_argument("-F", "--format-solution", choices=["fumen", "string", "str"
 parser.add_argument("-B", "--big-input", action="store_true", help="Have the program custom-compiled to run slightly faster for larger inputs")
 parser.add_argument("-T", "--turbo", action="store_true", help="Turbo mode (uses all cores, try to free up CPU space beforehand)")
 parser.add_argument("-b", "--b2b", choices=["none","tetris","tspin","b2b"], default="none", help="Clear requirements (no requirements, only tspins, only tetrises, or maintain b2b)")
+parser.add_argument("-M", "--mode", choices=["path","setup"], default="path", help="path (PCs) or setup (everything else)")
+parser.add_argument("-f", "--fill", choices=["s","z","l","j","i","t","o","S","Z","L","J","I","T","O","cyan","cy","blue","bl","orange","or","yellow","ye","green","gr","red","re","purple","pu","none","F"], default="F", help="What minos to fill (color or \'F\')")
+parser.add_argument("-m", "--margin", choices=["s","z","l","j","i","t","o","S","Z","L","J","I","T","O","cyan","cy","blue","bl","orange","or","yellow","ye","green","gr","red","re","purple","pu","none","M"], default="M", help="What minos are optional (color or \'M\')")
+#not adding --free
+parser.add_argument("-np", "--n-pieces", type=str, default="", help="Number of pieces to place ([min,max] for a range)")
+parser.add_argument("-g", "--gaps", type=str, default="", help="Alternative to \"--n-pieces\", specifying number of gaps (unfilled minos) instead. ([min,max] for a range)")
 
 args = parser.parse_args()
 
+if (args.mode=="path"):
+    setupFlags=False
+    if (args.fill!="F"):
+        print("Ignoring --fill")
+        setupFlags=True
+    if (args.margin!="M"):
+        print("Ignoring --margin")
+        setupFlags=True
+    if (args.n_pieces!=""):
+        print("Ignoring --n-pieces")
+        setupFlags=True
+    if (args.gaps!=""):
+        print("Ignoring --gaps")
+        setupFlags=True
+    if setupFlags:
+        print("(Include \"-M setup\" to use setup mode!)\n")
+
 lines = args.clear_line
+if (lines==-1 and args.mode=="path"):
+    lines=4
 
 if args.tetfu:
     inputBoard = args.tetfu
 else:
     inputBoard = args.inputBoard
 inputBoard = parseInputBoard(inputBoard,lines)
+
+if (lines==-1):#(and not path)
+    lines=len(inputBoard)//10
 
 if not args.patterns:
     pattern="*p1"*(5*lines//2 + 3)
@@ -71,6 +99,59 @@ for i in range(len(inputBoard)):
         bitmap|=1<<i<<(i//10)
 
 b2bReq = {"none":"0", "tetris":"1", "tspin":"2", "b2b":"3"}[args.b2b]
+
+if (args.mode=="setup"):
+    print("NOTE: setup mode is new and still being tested")
+    if (args.fill==args.margin):
+        raise Exception("Your --margin mino can't be the same as your --fill mino")
+    if (args.turbo):#temporary (don't have it yet)
+        print("Turbo mode coming soon (ignoring -T for now)")
+        args.turbo=False
+    startingGaps=bitmap^0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF#the gaps mean something different for setup mode
+    bitmap=0
+    gapBitmap=0
+    if (len(args.fill)==1):
+        fillMino=args.fill.upper()
+    else:
+        fillMap={"cy":"I","bl":"J","or":"L","ye":"O","gr":"S","re":"Z","pu":"T","no":"F"}
+        fillMino=fillMap[args.fill[:2]]
+    if (len(args.margin)==1):
+        marginMino=args.margin.upper()
+    else:
+        marginMap={"cy":"I","bl":"J","or":"L","ye":"O","gr":"S","re":"Z","pu":"T","no":"M"}
+        marginMino=marginMap[args.margin[:2]]
+
+    for i in range(len(inputBoard)):
+        if (inputBoard[i]!=fillMino and inputBoard[i]!=marginMino):
+            bitmap|=1<<i<<(i//10)
+        elif (inputBoard[i]==marginMino):#aka, gappable!
+            gapBitmap|=1<<i<<(i//10)
+    emptyMinos=inputBoard.count(fillMino)+inputBoard.count(marginMino)
+    gapMinMax=[0,emptyMinos]
+    if (args.n_pieces!=""):
+        if (args.n_pieces[0]!='['):
+            minPieces=int(args.n_pieces)
+            maxPieces=minPieces
+        else:
+            (minPieces,maxPieces)=(int(n) for n in args.n_pieces[1:-1].split(',',1))
+        gapMinMax[0]=emptyMinos-maxPieces*4
+        gapMinMax[1]=emptyMinos-minPieces*4
+    if (args.gaps!=""):
+        if (args.gaps[0]!='['):
+            minGaps=int(args.gaps)
+            maxGaps=minGaps
+        else:
+            (minGaps,maxGaps)=(int(n) for n in args.gaps[1:-1].split(',',1))
+        if (args.n_pieces!=""):
+            if (gapMinMax[0]!=minGaps or gapMinMax[1]!=maxGaps):#if the arguments don't match
+                raise Exception("The --n-pieces and --gaps values are contradictory")
+        else:
+            gapMinMax[0]=minGaps
+            gapMinMax[1]=maxGaps
+    gapMinMaxStr="{"+str(gapMinMax[0])+","+str(gapMinMax[1])+"}"
+
+
+
 
 if (args.turbo and not args.big_input):#turbo_precompiled
     print("Bitmap created\nTurbo mode")
@@ -123,7 +204,11 @@ elif (args.big_input):#custom-compiled
     if (load180Kicks!=""):
         output=subprocess.run([compiler, "v4.1_demo.cpp", f"-DmaxLines={lines}", f"-Dboard=bitmap({bitmap&0xFFFFFFFFFFFFFFFF}llu,{bitmap>>64}llu)", f"-DpatternStr=\"{pattern}\"", f"-DallowHold={hold}", f"-Dglue={glue}", f"-DconvertToFumen={convertToFumen}", f"-Db2bReq={b2bReq}", f"-DoutPath=\"{args.output_base}\"", load180Kicks, "-O3", "-std=c++11", "-o", "v4"],capture_output=True)
     else:
-        output=subprocess.run([compiler, "v4.1_demo.cpp", f"-DmaxLines={lines}", f"-Dboard=bitmap({bitmap&0xFFFFFFFFFFFFFFFF}llu,{bitmap>>64}llu)", f"-DpatternStr=\"{pattern}\"", f"-DallowHold={hold}", f"-Dglue={glue}", f"-DconvertToFumen={convertToFumen}", f"-Db2bReq={b2bReq}", f"-DoutPath=\"{args.output_base}\"", "-O3", "-std=c++11", "-o", "v4"],capture_output=True)
+        if (args.mode=="path"):
+            output=subprocess.run([compiler, "v4.1_demo.cpp", f"-DmaxLines={lines}", f"-Dboard=bitmap({bitmap&0xFFFFFFFFFFFFFFFF}llu,{bitmap>>64}llu)", f"-DpatternStr=\"{pattern}\"", f"-DallowHold={hold}", f"-Dglue={glue}", f"-DconvertToFumen={convertToFumen}", f"-Db2bReq={b2bReq}", f"-DoutPath=\"{args.output_base}\"", "-O3", "-std=c++11", "-o", "v4"],capture_output=True)
+        elif (args.mode=="setup"):
+            #print("testing (uncompiled) setup")#
+            output=subprocess.run([compiler, "v4.1_setup.cpp", f"-DmaxLines={lines}", f"-Dboard=bitmap({bitmap&0xFFFFFFFFFFFFFFFF}llu,{bitmap>>64}llu)", f"-DpatternStr=\"{pattern}\"", f"-DallowHold={hold}", f"-Dglue={glue}", f"-DconvertToFumen={convertToFumen}", f"-Db2bReq={b2bReq}", f"-DoutPath=\"{args.output_base}\"", f"-DgappableBoard=bitmap({gapBitmap&0xFFFFFFFFFFFFFFFF}llu,{gapBitmap>>64}llu)", "-DgapsInterval="+gapMinMaxStr, f"-DstartingGaps=bitmap({startingGaps&0xFFFFFFFFFFFFFFFF}llu,{startingGaps>>64}llu)", "-O3", "-std=c++11", "-o", "v4"],capture_output=True)
     if (output.stderr!=b''):
         raise Exception("Compilation error:\n\t"+output.stderr.decode())
 
@@ -148,18 +233,28 @@ else:#not-custom compiled
                 raise Exception("Couldn't find G++ or Clang++\nCouldn't find or compile executable")
         subprocess.run([compiler, "v4.1_precompiled.cpp", "-O3", "-std=c++11", "-o", "v4_precompiled"])
     print("Running finder...")#
+    command = ["./v4_precompiled", f"{bitmap&0xFFFFFFFFFFFFFFFF},{bitmap>>64}", f'{pattern}', str(lines), hold, glue, convertToFumen, b2bReq, args.output_base]
+    if (args.mode=="path"):
+        pass
+    elif (args.mode=="setup"):
+        #print("testing precompiled setup")#
+        command[0]="./v4_setup_precompiled"
+        command.extend([f"{gapBitmap&0xFFFFFFFFFFFFFFFF},{gapBitmap>>64}", gapMinMaxStr[1:-1], f"{startingGaps&0xFFFFFFFFFFFFFFFF},{startingGaps>>64}"])# f"-DgappableBoard=bitmap({gapBitmap&0xFFFFFFFFFFFFFFFF}llu,{gapBitmap>>64}llu)", "-DgapsInterval="+gapMinMaxStr, f"-DstartingGaps=bitmap({startingGaps&0xFFFFFFFFFFFFFFFF}llu,{startingGaps>>64}llu)"
+
     if (load180Kicks!=""):#v4.1_compiled.exe board, pattern, maxLines, allowHold, glue, convertToFumen, load180Kicks
-        output=subprocess.run(["./v4_precompiled", f"{bitmap&0xFFFFFFFFFFFFFFFF},{bitmap>>64}", f'{pattern}', str(lines), hold, glue, convertToFumen, b2bReq, args.output_base, load180Kicks],capture_output=True)
-    else:
-        output=subprocess.run(["./v4_precompiled", f"{bitmap&0xFFFFFFFFFFFFFFFF},{bitmap>>64}", f'{pattern}', str(lines), hold, glue, convertToFumen, b2bReq, args.output_base],capture_output=True)
+        command.append(load180Kicks)
+    output=subprocess.run(command,capture_output=True)
 if (output.stderr!=b''):
     raise Exception("Program error:\n\t"+output.stderr.decode())
 #print(output.stdout.decode()+"\n")#debug
+
 data=output.stdout.decode().split('\n')
 seconds=int(data[0][:-3])/1e6
 solutions=format(int(data[1].split(" ")[0]),",")
-if (seconds>=60):#show minutes
-    print(f"Found {solutions} solutions in {int(seconds//60)}:{round(seconds%60):02}s")
-else:
-    print(f"Found {solutions} solutions in {seconds%60} seconds")
+if (seconds>=3600):#show hours
+    print(f"\nFound {solutions} solutions in {int(seconds//3600)}:{int(round(seconds%3600)//60)}:{round(seconds%60):02}s")
+elif (seconds>=60):#show minutes
+    print(f"\nFound {solutions} solutions in {int(seconds//60)}:{round(seconds%60):02}s")
+else:#just seconds (might be in scienfitic if <1e-4)
+    print(f"\nFound {solutions} solutions in {seconds%60} seconds")
 print("Solutions have been written to",args.output_base)
