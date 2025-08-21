@@ -27,6 +27,7 @@ bool convertToFumen;
 bool enable180=false;//only one not guaranteed to be initialized
 //std::array<std::vector<char>,4>& kickTable180; (declared and initialized after jstris180 and tetrio180 are)
 char b2bReq;
+char exclude;
 
 //bitmap gappableBoard; (declared after struct bitmap)
 std::array<int,2>gapsInterval={0,0x7FFFFFFF};
@@ -270,6 +271,50 @@ bitmap quickTest(char piece, char rot, int pos, bitmap matrix){//debug tool
     else return adjusted>>-pos;
 }
 
+bool excludeFilter(bitmap gapMinos, int excludeMode=exclude){//true if pass
+    //excludeMode: 0=none, 1=holes, 2=strict-holes
+    //rn, expecting no ceiling on filledMinos
+    //outFile << "EXCLUDEFILTER" << std::endl;//
+    if (excludeMode==0) return true;
+    bitmap filledMinos=~gapMinos;//&~playfield for no wall
+    if (!gapMinos) return true;//NO gaps at all
+    
+    bitmap rowMask=bitmap(0x3FF)<<(11*maxLines);//(won't overflow since maxLines<=10)
+    bitmap rowAbove=0;
+    for (int i=maxLines-1;i>=0;i--){//tbh probably kinda slow
+        rowMask>>=11;
+        if ((filledMinos&rowMask)==rowMask){//filled row
+            rowAbove>>=11;
+            filledMinos=(filledMinos&~rowMask)|rowAbove;
+            gapMinos=(gapMinos|rowMask)^rowAbove;//needed?
+        }
+        else{
+            rowAbove=rowMask&filledMinos;
+        }
+    }
+    /*int to=0;
+    for (int from=0;;from<<=11){
+        if (0x3FF&~(filledMinos>>from)[0]){
+
+        }
+    }*/
+
+    if (excludeMode==1) return !(filledMinos>>11&gapMinos);//(not) any filled minos over any gap minos
+    if (excludeMode==2){//in case there's an ==3 in the future ig
+        bitmap maybe=gapMinos & filledMinos>>11 & wall;//gap minos on leftmost column with filled mino directly above
+        for (int i=1;i<10;i++){
+            maybe<<=1;
+            if (!!(maybe&filledMinos)) return false;//gap minos ended
+            maybe&=(filledMinos>>11);//continued maybes (gap with filled above)
+            maybe|=wall<<i & gapMinos & filledMinos>>11 & filledMinos<<1;//new maybes (gap with filled above and left)
+            //printf("i=%d, maybe: ",i);printMatrix(maybe,10);//
+        }
+        return !maybe;
+    }
+    //maybe a true "NO way to access hole" option, if people want that
+    return true;//invalid exclude
+}
+
 bool unplace(char piece, char rot, int pos, bitmap matrix, std::set<int>& dp){//returns whether the piece can be placed in the current matrix
     bitmap adjusted = rotations[piece][rot];
 
@@ -378,7 +423,7 @@ bool unplace(char piece, char rot, int pos, bitmap matrix, std::set<int>& dp){//
     //#define load180Kicks tetrio180//for testing
     if (!enable180) return false;
     //load180Kicks was #defined as jstris180 or tetrio180
-    //std::array<std::vector<char>,4>& kickTable180 = load180Kicks;
+    //std::array<std::vector<char>,4>& kickTable180 = load180Kicks;//initialized earlier
     bitmap rot180 = rotations[piece][(rot+2)&3];
     if (pos>=0) rot180<<=pos;
     else rot180>>=-pos;
@@ -388,8 +433,6 @@ bool unplace(char piece, char rot, int pos, bitmap matrix, std::set<int>& dp){//
         if (kick>=0) kicked<<kick;
         else kicked>>-kick;
         if (!(kicked&matrix)){
-            //if (piece==2) printf("i'm in\n");//
-
             bool flipsBack=true;
             for (int k2=0;k2<k;k2++){
                 bitmap kicked2 = rotations[piece][rot];//forwards because un-going backwards B)
@@ -562,9 +605,11 @@ bool findPath(std::map<int,piece>& solution, bitmap matrix, int clearedRows, uns
 bool checkSolution(std::vector<piece>& pieceList){//placing pieces FORWARD
     bitmap matrix = (board&~startingGaps)|(wall<<10);//gaps should be treated as gray minos for filling the board, but not for trying to actually place pieces
     std::map<int,piece> solution;
+    bitmap allGaps=startingGaps;
     for (auto it=pieceList.begin();it!=pieceList.end();it++){        
         if ((it->id&0xFF)==7){//"gap" piece
             //matrix&=~it->mat;//remove mino from matrix (shouldn't be in matrix to begin with?)
+            allGaps|=it->mat;
             continue;
         }
         if (solution.find(it->id)==solution.end()){
@@ -580,6 +625,8 @@ bool checkSolution(std::vector<piece>& pieceList){//placing pieces FORWARD
         printf("%c %x ",key[i.first&0xFF],i.second.filledMap);
         printMatrix(i.second.mat);
     }*/
+
+    if (!excludeFilter(allGaps)) return false;
 
     for (auto it=solution.begin();it!=solution.end();it++){//change filledMaps to skippedMaps
         int skippedMap = -1<<__builtin_ctz(it->second.filledMap)&-1u>>__builtin_clz(it->second.filledMap)^it->second.filledMap;//bitmap of all skipped rows
@@ -1092,7 +1139,7 @@ void parsePattern(std::string pattern){
     inputPattern = patternNodes;
 }
 int main(int argc, char* argv[]) {//v4.1_compiled.exe board, pattern, maxLines, allowHold, glue, convertToFumen, b2bReq, outPath, load180Kicks
-    if (argc<7) return 1;//for me
+    if (argc<7) return 1;//verifying compiled file exists
     int comma=0;//setting board
     while(argv[1][++comma]!=',');
     argv[1][comma++]=0;
@@ -1122,9 +1169,10 @@ int main(int argc, char* argv[]) {//v4.1_compiled.exe board, pattern, maxLines, 
     while(argv[11][++comma]!=',');
     argv[11][comma++]=0;
     startingGaps = bitmap(strtoull(argv[11],nullptr,0),strtoull(argv[11]+comma,nullptr,0));
-    if (argc==13){//setting kickTable180
+    exclude=argv[12][0]-'0';//setting exclude
+    if (argc==14){//setting kickTable180
         enable180 = true;
-        if (argv[12][0]=='t') kickTable180 = tetrio180;//jstris180 by default
+        if (argv[13][0]=='t') kickTable180 = tetrio180;//jstris180 by default
     }
 
     bitmap testMap = board;//defined at compile time
@@ -1187,6 +1235,11 @@ int main(int argc, char* argv[]) {//v4.1_compiled.exe board, pattern, maxLines, 
     if (!outFile.is_open()){
         throw std::runtime_error("Error opening output file.");
     }
+
+    /*outFile << std::hex << gapRows << std::endl;//
+    outFile << gapMinMax[0] << "," << gapMinMax[1] << std::endl;//
+    outFile << std::hex << gappable[1] << std::hex << gappable[0] << std::endl;//
+    outFile << std::hex << testMap[1] << std::hex << testMap[0] << std::endl;//*/
 
     /*Timing findSolutions()*/
     auto timer1=high_resolution_clock::now();

@@ -68,6 +68,10 @@ using namespace std::chrono;
 #define startingGaps bitmap(0)
 #endif
 
+#ifndef exclude
+#define exclude 0//0=none, 1=holes, 2=strict-holes
+#endif
+
 struct bitmap{
     unsigned long long val[2];
     bitmap() {}
@@ -299,6 +303,50 @@ bitmap quickTest(char piece, char rot, int pos, bitmap matrix){//debug tool
     bitmap adjusted = rotations[piece][rot];
     if (pos>=0) return adjusted<<pos;
     else return adjusted>>-pos;
+}
+
+bool excludeFilter(bitmap gapMinos, int excludeMode=exclude){//true if pass
+    //excludeMode: 0=none, 1=holes, 2=strict-holes
+    //rn, expecting no ceiling on filledMinos
+    //outFile << "EXCLUDEFILTER" << std::endl;//
+    if (excludeMode==0) return true;
+    bitmap filledMinos=~gapMinos;//&~playfield for no wall
+    if (!gapMinos) return true;//NO gaps at all
+    
+    bitmap rowMask=bitmap(0x3FF)<<(11*maxLines);//(won't overflow since maxLines<=10)
+    bitmap rowAbove=0;
+    for (int i=maxLines-1;i>=0;i--){//tbh probably kinda slow
+        rowMask>>=11;
+        if ((filledMinos&rowMask)==rowMask){//filled row
+            rowAbove>>=11;
+            filledMinos=(filledMinos&~rowMask)|rowAbove;
+            gapMinos=(gapMinos|rowMask)^rowAbove;//needed?
+        }
+        else{
+            rowAbove=rowMask&filledMinos;
+        }
+    }
+    /*int to=0;
+    for (int from=0;;from<<=11){
+        if (0x3FF&~(filledMinos>>from)[0]){
+
+        }
+    }*/
+
+    if (excludeMode==1) return !(filledMinos>>11&gapMinos);//(not) any filled minos over any gap minos
+    if (excludeMode==2){//in case there's an ==3 in the future ig
+        bitmap maybe=gapMinos & filledMinos>>11 & wall;//gap minos on leftmost column with filled mino directly above
+        for (int i=1;i<10;i++){
+            maybe<<=1;
+            if (!!(maybe&filledMinos)) return false;//gap minos ended
+            maybe&=(filledMinos>>11);//continued maybes (gap with filled above)
+            maybe|=wall<<i & gapMinos & filledMinos>>11 & filledMinos<<1;//new maybes (gap with filled above and left)
+            //printf("i=%d, maybe: ",i);printMatrix(maybe,10);//
+        }
+        return !maybe;
+    }
+    //maybe a true "NO way to access hole" option, if people want that
+    return true;//invalid exclude
 }
 
 bool unplace(char piece, char rot, int pos, bitmap matrix, std::set<int>& dp){//returns whether the piece can be placed in the current matrix
@@ -592,9 +640,11 @@ bool findPath(std::map<int,piece>& solution, bitmap matrix, int clearedRows, uns
 bool checkSolution(std::vector<piece>& pieceList){//placing pieces FORWARD
     bitmap matrix = (board&~startingGaps)|(wall<<10);//gaps should be treated as gray minos for filling the board, but not for trying to actually place pieces
     std::map<int,piece> solution;
+    bitmap allGaps=startingGaps;
     for (auto it=pieceList.begin();it!=pieceList.end();it++){      
         if ((it->id&0xFF)==7){//"gap" piece
             //matrix&=~it->mat;//remove mino from matrix (shouldn't be in matrix to begin with?)
+            allGaps|=it->mat;
             continue;
         }
         if (solution.find(it->id)==solution.end()){
@@ -610,6 +660,8 @@ bool checkSolution(std::vector<piece>& pieceList){//placing pieces FORWARD
         printf("%c %x ",key[i.first&0xFF],i.second.filledMap);
         printMatrix(i.second.mat);
     }*/
+
+    if (!excludeFilter(allGaps)) return false;
 
     for (auto it=solution.begin();it!=solution.end();it++){//change filledMaps to skippedMaps
         int skippedMap = -1<<__builtin_ctz(it->second.filledMap)&-1u>>__builtin_clz(it->second.filledMap)^it->second.filledMap;//bitmap of all skipped rows
@@ -1208,7 +1260,3 @@ int main() {
     //printf("Exiting...\n");//
     return 0;
 }
-/*
-Found 15,829,458 solutions in 43:06s
-Found 1,343,739 solutions in 57:04s
-*/

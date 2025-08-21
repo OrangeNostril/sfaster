@@ -43,6 +43,7 @@ parser.add_argument("-m", "--margin", choices=["s","z","l","j","i","t","o","S","
 #not adding --free
 parser.add_argument("-np", "--n-pieces", type=str, default="", help="Number of pieces to place ([min,max] for a range)")
 parser.add_argument("-g", "--gaps", type=str, default="", help="Alternative to \"--n-pieces\", specifying number of gaps (unfilled minos) instead. ([min,max] for a range)")
+parser.add_argument("-e", "--exclude", choices=["holes","strict-holes","none"], default="none", help="\"holes\" for no overhangs at all, \"strict-holes\" for no gaps with left+right blocked too, \"none\" for no restrictions")
 
 args = parser.parse_args()
 
@@ -59,6 +60,9 @@ if (args.mode=="path"):
         setupFlags=True
     if (args.gaps!=""):
         print("Ignoring --gaps")
+        setupFlags=True
+    if (args.exclude!="none"):
+        print("Ignoring --exclude")
         setupFlags=True
     if setupFlags:
         print("(Include \"-M setup\" to use setup mode!)\n")
@@ -149,6 +153,12 @@ if (args.mode=="setup"):
             gapMinMax[0]=minGaps
             gapMinMax[1]=maxGaps
     gapMinMaxStr="{"+str(gapMinMax[0])+","+str(gapMinMax[1])+"}"
+    excludeMode=0#"none"
+    if (args.exclude=="holes"):
+        excludeMode=1
+    elif (args.exclude=="strict-holes"):
+        excludeMode=2
+    #print("exclude:",args.exclude,excludeMode)#
 
 
 
@@ -208,7 +218,7 @@ elif (args.big_input):#custom-compiled
             output=subprocess.run([compiler, "v4.1_demo.cpp", f"-DmaxLines={lines}", f"-Dboard=bitmap({bitmap&0xFFFFFFFFFFFFFFFF}llu,{bitmap>>64}llu)", f"-DpatternStr=\"{pattern}\"", f"-DallowHold={hold}", f"-Dglue={glue}", f"-DconvertToFumen={convertToFumen}", f"-Db2bReq={b2bReq}", f"-DoutPath=\"{args.output_base}\"", "-O3", "-std=c++11", "-o", "v4"],capture_output=True)
         elif (args.mode=="setup"):
             #print("testing (uncompiled) setup")#
-            output=subprocess.run([compiler, "v4.1_setup.cpp", f"-DmaxLines={lines}", f"-Dboard=bitmap({bitmap&0xFFFFFFFFFFFFFFFF}llu,{bitmap>>64}llu)", f"-DpatternStr=\"{pattern}\"", f"-DallowHold={hold}", f"-Dglue={glue}", f"-DconvertToFumen={convertToFumen}", f"-Db2bReq={b2bReq}", f"-DoutPath=\"{args.output_base}\"", f"-DgappableBoard=bitmap({gapBitmap&0xFFFFFFFFFFFFFFFF}llu,{gapBitmap>>64}llu)", "-DgapsInterval="+gapMinMaxStr, f"-DstartingGaps=bitmap({startingGaps&0xFFFFFFFFFFFFFFFF}llu,{startingGaps>>64}llu)", "-O3", "-std=c++11", "-o", "v4"],capture_output=True)
+            output=subprocess.run([compiler, "v4.1_setup.cpp", f"-DmaxLines={lines}", f"-Dboard=bitmap({bitmap&0xFFFFFFFFFFFFFFFF}llu,{bitmap>>64}llu)", f"-DpatternStr=\"{pattern}\"", f"-DallowHold={hold}", f"-Dglue={glue}", f"-DconvertToFumen={convertToFumen}", f"-Db2bReq={b2bReq}", f"-DoutPath=\"{args.output_base}\"", f"-DgappableBoard=bitmap({gapBitmap&0xFFFFFFFFFFFFFFFF}llu,{gapBitmap>>64}llu)", "-DgapsInterval="+gapMinMaxStr, f"-DstartingGaps=bitmap({startingGaps&0xFFFFFFFFFFFFFFFF}llu,{startingGaps>>64}llu)", f"-Dexclude={excludeMode}", "-O3", "-std=c++11", "-o", "v4"],capture_output=True)
     if (output.stderr!=b''):
         raise Exception("Compilation error:\n\t"+output.stderr.decode())
 
@@ -216,8 +226,9 @@ elif (args.big_input):#custom-compiled
     output=subprocess.run(["./v4"],capture_output=True)
 else:#not-custom compiled
     print("Bitmap created")#
+    exeName="v4_setup_precompiled" if args.mode=="setup" else "v4_precompiled"
     try:
-        subprocess.run(["./v4_precompiled"])#returns immediately if exists, throws error if does not exist
+        subprocess.run(["./"+exeName])#returns immediately if exists, throws error if does not exist
     except FileNotFoundError:
         print("Executable not found, compiling...")
         try:#trying clang first because it's generally faster (at least for me)
@@ -231,7 +242,8 @@ else:#not-custom compiled
                 print("Using G++")#
             except FileNotFoundError:
                 raise Exception("Couldn't find G++ or Clang++\nCouldn't find or compile executable")
-        subprocess.run([compiler, "v4.1_precompiled.cpp", "-O3", "-std=c++11", "-o", "v4_precompiled"])
+        cppName=exeName[:2]+".1"+exeName[2:]+".cpp"#.1 until new version
+        subprocess.run([compiler, cppName, "-O3", "-std=c++11", "-o", exeName])
     print("Running finder...")#
     command = ["./v4_precompiled", f"{bitmap&0xFFFFFFFFFFFFFFFF},{bitmap>>64}", f'{pattern}', str(lines), hold, glue, convertToFumen, b2bReq, args.output_base]
     if (args.mode=="path"):
@@ -239,7 +251,7 @@ else:#not-custom compiled
     elif (args.mode=="setup"):
         #print("testing precompiled setup")#
         command[0]="./v4_setup_precompiled"
-        command.extend([f"{gapBitmap&0xFFFFFFFFFFFFFFFF},{gapBitmap>>64}", gapMinMaxStr[1:-1], f"{startingGaps&0xFFFFFFFFFFFFFFFF},{startingGaps>>64}"])# f"-DgappableBoard=bitmap({gapBitmap&0xFFFFFFFFFFFFFFFF}llu,{gapBitmap>>64}llu)", "-DgapsInterval="+gapMinMaxStr, f"-DstartingGaps=bitmap({startingGaps&0xFFFFFFFFFFFFFFFF}llu,{startingGaps>>64}llu)"
+        command.extend([f"{gapBitmap&0xFFFFFFFFFFFFFFFF},{gapBitmap>>64}", gapMinMaxStr[1:-1], f"{startingGaps&0xFFFFFFFFFFFFFFFF},{startingGaps>>64}", str(excludeMode)])
 
     if (load180Kicks!=""):#v4.1_compiled.exe board, pattern, maxLines, allowHold, glue, convertToFumen, load180Kicks
         command.append(load180Kicks)

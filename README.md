@@ -38,6 +38,7 @@ Here are flags that only apply to `setup` mode:
 * `-m`, `--margin` Which mino may be filled. You can specify the mino by letter (eg: `Z`), by color (eg: `"cyan"` or `"cy"`), or you can choose `M` (for string inputs). Defaults to `M`.
 `-np`, `--n-pieces` How many pieces should be placed in the solution. You can specify a number, or you can give an interval (eg: `[0,3]`) to specify the minimum and maximum number of pieces allowed. If not specified, ANY number of pieces are allowed (this will probably be changed).
 `-g`, `--gaps` Alternative to `--n-pieces`, specifying number of gaps (unfilled minos) instead. You can specify a number, or you can give an interval (eg: `[12,20]`) to specify the minimum and maximum number of pieces allowed.
+`-e`, `--exclude` Select `"holes"` for no overhangs at all, `"strict-holes"` for no gaps with left+right blocked too, `"none"` for no restrictions. Defaults to `"none"`.
 
 ### NEW AND UPCOMING FEATURES
 #### New features:
