@@ -6,15 +6,23 @@ def parseInputBoard(inputBoard:str,lines:int)->str:
         with open("input.txt") as file:#read from input.txt
             inputBoard=file.read()
     if ("v115" in inputBoard):#fumen to string
-        try:#try using py_fumen_py first
-            from py_fumen_py import decode
-            inputBoard = decode(inputBoard)[0].field.string()[:-11]#only gets first page (for now)
-        except ModuleNotFoundError:
-            try:#try using py_fumen as a backup
-                from py_fumen.decoder import decode
-                inputBoard = decode(inputBoard)[0].get_field().string()[:-11]
+        if (args.page<=0):
+            if (args.page==0):
+                raise Exception("Page out of range (`--page 1` is the first page)")
+            raise Exception("Page out of range")
+        try:
+            try:#try using py_fumen_py first
+                from py_fumen_py import decode
+                inputBoard = decode(inputBoard)[args.page-1].field.string()[:-11]
             except ModuleNotFoundError:
-                raise Exception("Please install either py_fumen or py_fumen_py before inputting fumens")
+                try:#try using py_fumen as a backup
+                    print("Can't find py_fumen_py, trying py_fumen instead")#
+                    from py_fumen.decoder import decode
+                    inputBoard = decode(inputBoard)[args.page-1].get_field().string()[:-11]
+                except ModuleNotFoundError:
+                    raise Exception("Please install either py_fumen or py_fumen_py before inputting fumens")
+        except IndexError:#except from either py_fumen_py or py_fumen
+            raise Exception("Page out of range")
     inputBoard=inputBoard.replace("\n","")#remove line breaks
     if (len(inputBoard)%10!=0):
         raise args.argumentParseError("Please ensure your board has a multiple of 10 spaces in it")
@@ -23,13 +31,19 @@ def parseInputBoard(inputBoard:str,lines:int)->str:
         inputBoard="_"*(10*lines-len(inputBoard))+inputBoard
     return inputBoard
 
+excludeMap = {"none":"0", "holes":"1", "strict-holes":"2"}
+#b2bMap = {"none":"0", "tetris":"1", "tspin":"2", "b2b":"3"}#later
+
+
 parser = argparse.ArgumentParser(description="Sfaster flags")
 
+#everything commands
 parser.add_argument("inputBoard", nargs="?", default="", help="Input board string")
 parser.add_argument("-t", "--tetfu", help="Input board string")
+parser.add_argument("-M", "--mode", choices=["path","setup"], default="path", help="path (PCs) or setup (everything else)")
 parser.add_argument("-c", "--clear-line", type=int, choices=[-1]+list(range(1,11)), default=-1, help="Number of lines to clear (1-10)")
 parser.add_argument("-H", "--hold", choices=["avoid", "use"], default="use",help="Hold piece preference")
-parser.add_argument("-p", "--patterns", type=str, help="Pattern string to parse")
+parser.add_argument("-p", "--patterns", type=str, metavar="eg: [SZT]p2,*p1,*!", help="Pattern string to parse")
 parser.add_argument("-s", "--split", choices=["yes", "no"], default="yes", help="Split preference")
 parser.add_argument("-d", "--drop", choices=["jstris180", "tetrio180","soft","softdrop"], default="soft", help="Specify movement abilities")
 parser.add_argument("-o", "--output-base", default="output.txt", help="Specify program output destination")
@@ -37,15 +51,16 @@ parser.add_argument("-F", "--format-solution", choices=["fumen", "string", "str"
 parser.add_argument("-B", "--big-input", action="store_true", help="Have the program custom-compiled to run slightly faster for larger inputs")
 parser.add_argument("-T", "--turbo", action="store_true", help="Turbo mode (uses all cores, try to free up CPU space beforehand)")
 parser.add_argument("-b", "--b2b", choices=["none","tetris","tspin","b2b"], default="none", help="Clear requirements (no requirements, only tspins, only tetrises, or maintain b2b)")
-parser.add_argument("-M", "--mode", choices=["path","setup"], default="path", help="path (PCs) or setup (everything else)")
+parser.add_argument("-P", "--page", type=int, default=1, help="Which page of the fumen input to use")
+#setup commands
 parser.add_argument("-f", "--fill", choices=["s","z","l","j","i","t","o","S","Z","L","J","I","T","O","cyan","cy","blue","bl","orange","or","yellow","ye","green","gr","red","re","purple","pu","none","F"], default="F", help="What minos to fill (color or \'F\')")
 parser.add_argument("-m", "--margin", choices=["s","z","l","j","i","t","o","S","Z","L","J","I","T","O","cyan","cy","blue","bl","orange","or","yellow","ye","green","gr","red","re","purple","pu","none","M"], default="M", help="What minos are optional (color or \'M\')")
-#not adding --free
 parser.add_argument("-np", "--n-pieces", type=str, default="", help="Number of pieces to place ([min,max] for a range)")
 parser.add_argument("-g", "--gaps", type=str, default="", help="Alternative to \"--n-pieces\", specifying number of gaps (unfilled minos) instead. ([min,max] for a range)")
-parser.add_argument("-e", "--exclude", choices=["holes","strict-holes","none"], default="none", help="\"holes\" for no overhangs at all, \"strict-holes\" for no gaps with left+right blocked too, \"none\" for no restrictions")
+parser.add_argument("-e", "--exclude", choices=excludeMap.keys(), default="none", metavar="test", help="\"holes\" for no overhangs at all, \"strict-holes\" for no gaps with left+right blocked too, \"none\" for no restrictions")
 
 args = parser.parse_args()
+args.exclude = excludeMap[args.exclude]
 
 if (args.mode=="path"):
     setupFlags=False
@@ -61,7 +76,7 @@ if (args.mode=="path"):
     if (args.gaps!=""):
         print("Ignoring --gaps")
         setupFlags=True
-    if (args.exclude!="none"):
+    if (args.exclude!="0"):
         print("Ignoring --exclude")
         setupFlags=True
     if setupFlags:
@@ -153,12 +168,6 @@ if (args.mode=="setup"):
             gapMinMax[0]=minGaps
             gapMinMax[1]=maxGaps
     gapMinMaxStr="{"+str(gapMinMax[0])+","+str(gapMinMax[1])+"}"
-    excludeMode=0#"none"
-    if (args.exclude=="holes"):
-        excludeMode=1
-    elif (args.exclude=="strict-holes"):
-        excludeMode=2
-    #print("exclude:",args.exclude,excludeMode)#
 
 
 
@@ -218,7 +227,7 @@ elif (args.big_input):#custom-compiled
             output=subprocess.run([compiler, "v4.1_demo.cpp", f"-DmaxLines={lines}", f"-Dboard=bitmap({bitmap&0xFFFFFFFFFFFFFFFF}llu,{bitmap>>64}llu)", f"-DpatternStr=\"{pattern}\"", f"-DallowHold={hold}", f"-Dglue={glue}", f"-DconvertToFumen={convertToFumen}", f"-Db2bReq={b2bReq}", f"-DoutPath=\"{args.output_base}\"", "-O3", "-std=c++11", "-o", "v4"],capture_output=True)
         elif (args.mode=="setup"):
             #print("testing (uncompiled) setup")#
-            output=subprocess.run([compiler, "v4.1_setup.cpp", f"-DmaxLines={lines}", f"-Dboard=bitmap({bitmap&0xFFFFFFFFFFFFFFFF}llu,{bitmap>>64}llu)", f"-DpatternStr=\"{pattern}\"", f"-DallowHold={hold}", f"-Dglue={glue}", f"-DconvertToFumen={convertToFumen}", f"-Db2bReq={b2bReq}", f"-DoutPath=\"{args.output_base}\"", f"-DgappableBoard=bitmap({gapBitmap&0xFFFFFFFFFFFFFFFF}llu,{gapBitmap>>64}llu)", "-DgapsInterval="+gapMinMaxStr, f"-DstartingGaps=bitmap({startingGaps&0xFFFFFFFFFFFFFFFF}llu,{startingGaps>>64}llu)", f"-Dexclude={excludeMode}", "-O3", "-std=c++11", "-o", "v4"],capture_output=True)
+            output=subprocess.run([compiler, "v4.1_setup.cpp", f"-DmaxLines={lines}", f"-Dboard=bitmap({bitmap&0xFFFFFFFFFFFFFFFF}llu,{bitmap>>64}llu)", f"-DpatternStr=\"{pattern}\"", f"-DallowHold={hold}", f"-Dglue={glue}", f"-DconvertToFumen={convertToFumen}", f"-Db2bReq={b2bReq}", f"-DoutPath=\"{args.output_base}\"", f"-DgappableBoard=bitmap({gapBitmap&0xFFFFFFFFFFFFFFFF}llu,{gapBitmap>>64}llu)", "-DgapsInterval="+gapMinMaxStr, f"-DstartingGaps=bitmap({startingGaps&0xFFFFFFFFFFFFFFFF}llu,{startingGaps>>64}llu)", "-Dexclude="+args.exclude, "-O3", "-std=c++11", "-o", "v4"],capture_output=True)
     if (output.stderr!=b''):
         raise Exception("Compilation error:\n\t"+output.stderr.decode())
 
@@ -251,7 +260,7 @@ else:#not-custom compiled
     elif (args.mode=="setup"):
         #print("testing precompiled setup")#
         command[0]="./v4_setup_precompiled"
-        command.extend([f"{gapBitmap&0xFFFFFFFFFFFFFFFF},{gapBitmap>>64}", gapMinMaxStr[1:-1], f"{startingGaps&0xFFFFFFFFFFFFFFFF},{startingGaps>>64}", str(excludeMode)])
+        command.extend([f"{gapBitmap&0xFFFFFFFFFFFFFFFF},{gapBitmap>>64}", gapMinMaxStr[1:-1], f"{startingGaps&0xFFFFFFFFFFFFFFFF},{startingGaps>>64}", args.exclude])
 
     if (load180Kicks!=""):#v4.1_compiled.exe board, pattern, maxLines, allowHold, glue, convertToFumen, load180Kicks
         command.append(load180Kicks)

@@ -13,7 +13,7 @@ Examples:
 `sfaster -t LLL_____SSLOO____SSTJOO___ZZTTJJJ____ZZT`
 `sfaster` (No board provided, will read from `input.txt`.)
 
-You can specify the mode with the `--mode` or `-M` flag, specifying either `path` or `setup`. If no mode is specified, the default mode is `path`.
+You can specify the mode with the `-M` (or `--mode`) flag, specifying either `path` or `setup`. If no mode is specified, the default mode is `path`.
 
 While the program is running, every solution will be written to `output.txt` as it is found. By default, the solutions will be written as fumens, but to have solutions printed as strings, add `-F string` to your command. Keep in mind that the output file can get very large if a large number of solutions are found.
 
@@ -24,8 +24,8 @@ Sfaster doesn't have some of the more niche flags in sfinder yet, but it current
 * `-H`, `--hold` Whether to allow hold to be used. Specify `use` to allow, or `avoid` to disallow. Defaults to `use`.
 * `-d`, `--drop` Specify movement abilities (ie: enable 180 spins). Currently, the options are `soft` (or `softdrop`), `jstris180`, or `tetris180`. To enable 180 spins with the 180 kick table for either jstris or tetr.io, choose `jstris180` or `tetrio180`, respectively.
     * Warning: the 180 kicktables use the same logic as the other kicktables, but they haven't been thoroughly tested yet.
+* `-P`, `--page` Which fumen page to use as the input. Ignored for string input. 
 * `-o`, `--output-base` Specify where the solutions should be written. Defaults to `"output.txt"`.
-
 Here are the flags unique to Sfinder:
 * `-F`, `--format-solution` Specify whether solutions should be written as fumens or strings. Choose `fumen` or `string`, defaults to `fumen`.
 * `-B`, `--big-input` Add this flag if you're processing a very large input (ie: many pieces). It should typically run faster, but will take a few seconds to recompile before it starts. Clang++/G++ is required to use this flag. Due to how compilers work, there's a chance this version could have a significantly different (faster or even slower) runtime than the default version.
@@ -33,6 +33,7 @@ Here are the flags unique to Sfinder:
     * G++ (not Clang++) is required to use both `-B` and `-T` simultaneously. No compiler is needed to run `-T` alone.
 * `-b`, `--b2b` Set b2b restrictions. Choose `"tetris"` to return solutions where the only clears are tetrises, `"tspin"` to return solutions where the only clears are tspins, `"b2b"` to return solutions where b2b is maintained (either tspins or tetrises), or `"none"` for no restrictions. Defaults to `"none"`.
     * Note that setting it to `"tspin"` guarantees no solutions in `path` mode since you can't tspin a PC.
+
 Here are flags that only apply to `setup` mode:
 * `-f`, `--fill` Which mino must be filled. You can specify the mino by letter (eg: `Z`), by color (eg: `"cyan"` or `"cy"`), or you can choose `F` (for string inputs). Defaults to `F`.
     * Unlike in sfinder, you can run sfaster `setup` mode with no fill minos on the board at all!
@@ -43,6 +44,7 @@ Here are flags that only apply to `setup` mode:
 
 ### NEW AND UPCOMING FEATURES
 #### New features:
+* Specify input fumen page (`-P`)
 * `setup` mode, with flexible piece/gap counts
 #### Coming soon:
 * Several small features and improvements to `setup` mode
@@ -54,6 +56,4 @@ Here are flags that only apply to `setup` mode:
 * Faster setup (ie: new non-python version of run_sfaster)
 * Specify kicktables (beyond 180 toggle)
 * Option to keep minos in initial board from turning gray in outputs
-* Specify input fumen page (`-P`)
-
 * Specify multiple patterns (`;` operator in `-p`)
