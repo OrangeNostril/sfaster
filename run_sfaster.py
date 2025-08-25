@@ -45,7 +45,7 @@ parser.add_argument("-c", "--clear-line", type=int, choices=[-1]+list(range(1,11
 parser.add_argument("-H", "--hold", choices=["avoid", "use"], default="use",help="Hold piece preference")
 parser.add_argument("-p", "--patterns", type=str, metavar="eg: [SZT]p2,*p1,*!", help="Pattern string to parse")
 parser.add_argument("-s", "--split", choices=["yes", "no"], default="yes", help="Split preference")
-parser.add_argument("-d", "--drop", choices=["jstris180", "tetrio180","soft","softdrop"], default="soft", help="Specify movement abilities")
+parser.add_argument("-d", "--drop", choices=["soft","softdrop","hard","harddrop","jstris180", "tetrio180"], default="soft", help="Specify movement abilities")
 parser.add_argument("-o", "--output-base", default="output.txt", help="Specify program output destination")
 parser.add_argument("-F", "--format-solution", choices=["fumen", "string", "str"], default="fumen", help="Format of each solution")
 parser.add_argument("-B", "--big-input", action="store_true", help="Have the program custom-compiled to run slightly faster for larger inputs")
@@ -104,7 +104,9 @@ hold = "false" if args.hold=="avoid" else "true"
 glue = "true" if args.split=="yes" else "false"
 convertToFumen = "true" if args.format_solution=="fumen" else "false"
 
-load180Kicks = "" if args.drop[:4]=="soft" else "-Dload180Kicks="+args.drop#leaving it out entirely if not specified
+#load180Kicks = "" if args.drop[:4]=="soft" else "-Dload180Kicks="+args.drop#leaving it out entirely if not specified
+#harddrop = "true" if args.drop[:4]=="hard" else "false"#for the -B calls
+
 
 print("Board:")
 for i in range(0,len(inputBoard),10):
@@ -169,9 +171,6 @@ if (args.mode=="setup"):
             gapMinMax[1]=maxGaps
     gapMinMaxStr="{"+str(gapMinMax[0])+","+str(gapMinMax[1])+"}"
 
-
-
-
 if (args.turbo and not args.big_input):#turbo_precompiled
     print("Bitmap created\nTurbo mode")
     try:
@@ -186,10 +185,10 @@ if (args.turbo and not args.big_input):#turbo_precompiled
             raise Exception("Couldn't find G++ or Clang++\nCouldn't find or compile executable")
         subprocess.run([compiler, "-fopenmp", "v4.1_precompiled_turbo.cpp", "-O3", "-std=c++11", "-o", "v4_precompiled_turbo"])
     print("Running finder...")#
-    if (load180Kicks!=""):#v4.1_compiled.exe board, pattern, maxLines, allowHold, glue, convertToFumen, load180Kicks
-        output=subprocess.run(["./v4_precompiled_turbo", f"{bitmap&0xFFFFFFFFFFFFFFFF},{bitmap>>64}", f'{pattern}', str(lines), hold, glue, convertToFumen, b2bReq, args.output_base, load180Kicks],capture_output=True)
-    else:
-        output=subprocess.run(["./v4_precompiled_turbo", f"{bitmap&0xFFFFFFFFFFFFFFFF},{bitmap>>64}", f'{pattern}', str(lines), hold, glue, convertToFumen, b2bReq, args.output_base],capture_output=True)
+    command=["./v4_precompiled_turbo", f"{bitmap&0xFFFFFFFFFFFFFFFF},{bitmap>>64}", f'{pattern}', str(lines), hold, glue, convertToFumen, b2bReq, args.output_base]
+    if (args.drop[:4]!="soft"):
+        command.append(args.drop)#either hard, harddrop, jstris180, or tetrio180
+    output=subprocess.run(command,capture_output=True)
 elif (args.turbo):#turbo mode (custom compiled)
     print("Bitmap created\nTurbo mode\nCompiling finder...")#
     try:#only trying g++ because clang++ isn't automatically compatible with OpenMP
@@ -197,11 +196,14 @@ elif (args.turbo):#turbo mode (custom compiled)
         compiler = "g++"
         print("Using G++")#
     except FileNotFoundError:
-        raise Exception("Please install G++ before using the -T flag")
-    if (load180Kicks!=""):
-        output=subprocess.run([compiler, "-fopenmp", "v4.1_turbo.cpp", f"-DmaxLines={lines}", f"-Dboard=bitmap({bitmap&0xFFFFFFFFFFFFFFFF}llu,{bitmap>>64}llu)", f"-DpatternStr=\"{pattern}\"", f"-DallowHold={hold}", f"-Dglue={glue}", f"-DconvertToFumen={convertToFumen}", f"-Db2bReq={b2bReq}", f"-DoutPath=\"{args.output_base}\"", load180Kicks, "-O3", "-std=c++11", "-o", "v4"],capture_output=True)
-    else:
-        output=subprocess.run([compiler, "-fopenmp", "v4.1_turbo.cpp", f"-DmaxLines={lines}", f"-Dboard=bitmap({bitmap&0xFFFFFFFFFFFFFFFF}llu,{bitmap>>64}llu)", f"-DpatternStr=\"{pattern}\"", f"-DallowHold={hold}", f"-Dglue={glue}", f"-DconvertToFumen={convertToFumen}", f"-Db2bReq={b2bReq}", f"-DoutPath=\"{args.output_base}\"", "-O3", "-std=c++11", "-o", "v4"],capture_output=True)
+        raise Exception("Please install G++ before using the -T flag with -B")
+    
+    command=[compiler, "-fopenmp", "v4.1_turbo.cpp", f"-DmaxLines={lines}", f"-Dboard=bitmap({bitmap&0xFFFFFFFFFFFFFFFF}llu,{bitmap>>64}llu)", f"-DpatternStr=\"{pattern}\"", f"-DallowHold={hold}", f"-Dglue={glue}", f"-DconvertToFumen={convertToFumen}", f"-Db2bReq={b2bReq}", f"-DoutPath=\"{args.output_base}\"", "-O3", "-std=c++11", "-o", "v4"]
+    if (args.drop[:4]=="hard"):#harddrop only
+        command.append("-Dharddrop=true")
+    elif (args.drop[:4]!="soft"):#adding 180 spins
+        command.append("-Dload180Kicks="+args.drop)
+    output=subprocess.run(command,capture_output=True)#compiling
     if (output.stderr!=b''):
         raise Exception("Compilation error:\n\t"+output.stderr.decode())
 
@@ -220,14 +222,15 @@ elif (args.big_input):#custom-compiled
             print("Using G++")#
         except FileNotFoundError:
             raise Exception("Please install either Clang++ or G++ before using the -B flag")
-    if (load180Kicks!=""):
-        output=subprocess.run([compiler, "v4.1_demo.cpp", f"-DmaxLines={lines}", f"-Dboard=bitmap({bitmap&0xFFFFFFFFFFFFFFFF}llu,{bitmap>>64}llu)", f"-DpatternStr=\"{pattern}\"", f"-DallowHold={hold}", f"-Dglue={glue}", f"-DconvertToFumen={convertToFumen}", f"-Db2bReq={b2bReq}", f"-DoutPath=\"{args.output_base}\"", load180Kicks, "-O3", "-std=c++11", "-o", "v4"],capture_output=True)
-    else:
-        if (args.mode=="path"):
-            output=subprocess.run([compiler, "v4.1_demo.cpp", f"-DmaxLines={lines}", f"-Dboard=bitmap({bitmap&0xFFFFFFFFFFFFFFFF}llu,{bitmap>>64}llu)", f"-DpatternStr=\"{pattern}\"", f"-DallowHold={hold}", f"-Dglue={glue}", f"-DconvertToFumen={convertToFumen}", f"-Db2bReq={b2bReq}", f"-DoutPath=\"{args.output_base}\"", "-O3", "-std=c++11", "-o", "v4"],capture_output=True)
-        elif (args.mode=="setup"):
-            #print("testing (uncompiled) setup")#
-            output=subprocess.run([compiler, "v4.1_setup.cpp", f"-DmaxLines={lines}", f"-Dboard=bitmap({bitmap&0xFFFFFFFFFFFFFFFF}llu,{bitmap>>64}llu)", f"-DpatternStr=\"{pattern}\"", f"-DallowHold={hold}", f"-Dglue={glue}", f"-DconvertToFumen={convertToFumen}", f"-Db2bReq={b2bReq}", f"-DoutPath=\"{args.output_base}\"", f"-DgappableBoard=bitmap({gapBitmap&0xFFFFFFFFFFFFFFFF}llu,{gapBitmap>>64}llu)", "-DgapsInterval="+gapMinMaxStr, f"-DstartingGaps=bitmap({startingGaps&0xFFFFFFFFFFFFFFFF}llu,{startingGaps>>64}llu)", "-Dexclude="+args.exclude, "-O3", "-std=c++11", "-o", "v4"],capture_output=True)
+    command=[compiler, "v4.1_demo.cpp", f"-DmaxLines={lines}", f"-Dboard=bitmap({bitmap&0xFFFFFFFFFFFFFFFF}llu,{bitmap>>64}llu)", f"-DpatternStr=\"{pattern}\"", f"-DallowHold={hold}", f"-Dglue={glue}", f"-DconvertToFumen={convertToFumen}", f"-Db2bReq={b2bReq}", f"-DoutPath=\"{args.output_base}\"", "-O3", "-std=c++11", "-o", "v4"]
+    if (args.mode=="setup"):
+        command[1]="v4.1_setup.cpp"
+        command.extend([f"-DgappableBoard=bitmap({gapBitmap&0xFFFFFFFFFFFFFFFF}llu,{gapBitmap>>64}llu)", "-DgapsInterval="+gapMinMaxStr, f"-DstartingGaps=bitmap({startingGaps&0xFFFFFFFFFFFFFFFF}llu,{startingGaps>>64}llu)", "-Dexclude="+args.exclude])
+    if (args.drop[:4]=="hard"):#harddrop only
+        command.append("-Dharddrop=true")
+    elif (args.drop[:4]!="soft"):#adding 180 spins
+        command.append("-Dload180Kicks="+args.drop)
+    output=subprocess.run(command,capture_output=True)
     if (output.stderr!=b''):
         raise Exception("Compilation error:\n\t"+output.stderr.decode())
 
@@ -262,9 +265,10 @@ else:#not-custom compiled
         command[0]="./v4_setup_precompiled"
         command.extend([f"{gapBitmap&0xFFFFFFFFFFFFFFFF},{gapBitmap>>64}", gapMinMaxStr[1:-1], f"{startingGaps&0xFFFFFFFFFFFFFFFF},{startingGaps>>64}", args.exclude])
 
-    if (load180Kicks!=""):#v4.1_compiled.exe board, pattern, maxLines, allowHold, glue, convertToFumen, load180Kicks
-        command.append(load180Kicks)
+    if (args.drop[:4]!="soft"):#adding harddrop or 180 spins
+        command.append(args.drop)
     output=subprocess.run(command,capture_output=True)
+
 if (output.stderr!=b''):
     raise Exception("Program error:\n\t"+output.stderr.decode())
 #print(output.stdout.decode()+"\n")#debug

@@ -51,8 +51,12 @@ using namespace std::chrono;
 #define outPath "output.txt"
 #endif
 
-#ifndef b2bReq //lowest bit: Ir0, 2nd lowest: any T
+#ifndef b2bReq//lowest bit: Ir0, 2nd lowest: any T
 #define b2bReq 0
+#endif
+
+#ifndef harddrop //harddrop only (no softdrop, no spins, etc.)
+#define harddrop false
 #endif
 
 struct bitmap{
@@ -220,7 +224,15 @@ std::string stringify(std::vector<piece>& pieceList){//debug tool
     return solStr;
 }
 void writeSolution(std::vector<piece>& pieceList){//stringifies and writes one solution to file
-    std::string solStr(10*maxLines,'X');
+    //std::string solStr(10*maxLines,'X');
+    std::string solStr(10*maxLines,'_');
+    for (int r=0;r<maxLines;r++){
+        for (int c=0;c<10;c++){
+            if (board(r*11+c)){
+                solStr[(maxLines-r-1)*10+c]='X';//flip solution (fumen reads top-bottom)
+            }
+        }
+    }
     constexpr char key[7] = {'I','J','L','O','S','T','Z'};
     for (int r=0;r<maxLines;r++){
         for (int c=0;c<10;c++){
@@ -305,6 +317,7 @@ bool unplace(char piece, char rot, int pos, bitmap matrix, std::set<int>& dp){//
     //printMatrix(adjusted|matrix,12);//
 
     if (unplace(piece,rot,pos+11,matrix,dp)) return true;//up
+    if (harddrop) return false;
     if (!(adjusted&1) && unplace(piece,rot,pos-1,matrix,dp)) return true;//left
     if (unplace(piece,rot,pos+1,matrix,dp)) return true;//right
     
@@ -520,7 +533,7 @@ bool findPath(std::map<int,piece>& solution, bitmap matrix, int clearedRows, uns
                 && (0x3FFllu<<22&~testRows)
                 && (0x3FFllu<<33&~testRows))
             ){//if there aren't empty spaces on every row the piece could be touching (aka any line clears)
-                if (piece==0 && (b2bReq&1)){
+                if (piece==0 && (b2bReq&1)){//change to &5 later?
                     if (0xfffffffffffllu&~((matrix|adjusted)>>bottom)[0]) continue;//if not clearing a tetris
                 }
                 else if (piece==5 && (b2bReq&2)){//change to &6 later?

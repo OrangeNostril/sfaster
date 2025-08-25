@@ -56,6 +56,10 @@ using namespace std::chrono;
 #define b2bReq 0
 #endif
 
+#ifndef harddrop //harddrop only (no softdrop, no spins, etc.)
+#define harddrop false
+#endif
+
 #ifndef gappableBoard//starting gaps board
 #define gappableBoard bitmap(-1llu,-1llu)
 #endif
@@ -374,6 +378,7 @@ bool unplace(char piece, char rot, int pos, bitmap matrix, std::set<int>& dp){//
     //printMatrix(adjusted|matrix,12);//
 
     if (unplace(piece,rot,pos+11,matrix,dp)) return true;//up
+    if (harddrop) return false;
     if (!(adjusted&1) && unplace(piece,rot,pos-1,matrix,dp)) return true;//left
     if (unplace(piece,rot,pos+1,matrix,dp)) return true;//right
     

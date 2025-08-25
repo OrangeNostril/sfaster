@@ -57,6 +57,10 @@ using namespace std::chrono;
 #define b2bReq 0
 #endif
 
+#ifndef harddrop //harddrop only (no softdrop, no spins, etc.)
+#define harddrop false
+#endif
+
 std::atomic<int> usedCores{1};//always using 1 thread
 std::atomic<unsigned long long> solCount{0};//tag: countSolutions
 
@@ -313,6 +317,7 @@ bool unplace(char piece, char rot, int pos, bitmap matrix, std::set<int>& dp){//
     //printMatrix(adjusted|matrix,12);//
 
     if (unplace(piece,rot,pos+11,matrix,dp)) return true;//up
+    if (harddrop) return false;
     if (!(adjusted&1) && unplace(piece,rot,pos-1,matrix,dp)) return true;//left
     if (unplace(piece,rot,pos+1,matrix,dp)) return true;//right
     
@@ -1113,7 +1118,8 @@ int main() {
     auto timer3=duration_cast<microseconds>(timer2-timer1);
     timer1=high_resolution_clock::now();
 
-    #pragma omp parallel
+    //omp_set_num_threads(1);
+    #pragma omp parallel// num_threads(1)
     {
         #pragma omp single
         {

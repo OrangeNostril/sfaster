@@ -24,7 +24,8 @@ int maxLines;
 bool allowHold;
 bool glue;//not yet used
 bool convertToFumen;
-bool enable180=false;//only one not guaranteed to be initialized
+bool harddrop=false;//only one not guaranteed to be initialized
+bool enable180=false;//alt init from same flag as harddrop
 //std::array<std::vector<char>,4>& kickTable180; (declared and initialized after jstris180 and tetrio180 are)
 char b2bReq;
 
@@ -265,6 +266,7 @@ bool unplace(char piece, char rot, int pos, bitmap matrix, std::set<int>& dp){//
     //printMatrix(adjusted|matrix,12);//
 
     if (unplace(piece,rot,pos+11,matrix,dp)) return true;//up
+    if (harddrop) return false;
     if (!(adjusted&1) && unplace(piece,rot,pos-1,matrix,dp)) return true;//left
     if (unplace(piece,rot,pos+1,matrix,dp)) return true;//right
     
@@ -991,7 +993,7 @@ void parsePattern(std::string pattern){
     inputPattern = patternNodes;
 }
 int main(int argc, char* argv[]) {//v4.1_compiled.exe board, pattern, maxLines, allowHold, glue, convertToFumen, b2bReq, outPath, load180Kicks
-    if (argc<7) return 1;//for me
+    if (argc<9) return 1;//used to verify compiled file exists
     int comma=0;//setting board
     while(argv[1][++comma]!=',');
     argv[1][comma++]=0;
@@ -1010,8 +1012,11 @@ int main(int argc, char* argv[]) {//v4.1_compiled.exe board, pattern, maxLines, 
     b2bReq=argv[7][0]-'0';//setting b2bReq
     /*using outPath (argv[8]) in a bit*/
     if (argc==10){//setting kickTable180
-        enable180 = true;
-        if (argv[9][0]=='t') kickTable180 = tetrio180;//jstris180 by default
+        if (argv[9][0]=='h') harddrop=true;
+        else{
+            enable180 = true;
+            if (argv[9][0]=='t') kickTable180 = tetrio180;//jstris180 by default
+        }
     }
 
     bitmap testMap = board;//defined at compile time
