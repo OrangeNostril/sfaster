@@ -31,9 +31,33 @@ def parseInputBoard(inputBoard:str,lines:int)->str:
         inputBoard="_"*(10*lines-len(inputBoard))+inputBoard
     return inputBoard
 
+def parseInterval(inputVal:str)->list[int]:#may just be a number, or will be a string like "[1,2]"
+    if (inputVal==""):
+        return [-1,-1]
+    try:
+        if inputVal.startswith("[") and inputVal.endswith("]"):#also excludes empty strings
+            vals = [int(val) for val in inputVal[1:-1].split(",",1)]
+            if (len(vals)==1):#being nice
+                vals = [vals[0],vals[0]]
+            if (len(vals)==2):#aka not []
+                if (vals[0]>vals[1]):
+                    raise Exception("Make sure min<=max in your interval")
+                if (vals[0]<-1 or vals[1]<-1):#note: some flags have more restrictions
+                    raise Exception("One or more values out of range")
+                if (vals[0]==-1)!=(vals[1]==-1):#if one bound is -1 but not the other
+                    raise Exception("Must specify both bounds if specifying one")
+                return vals
+        else:
+            val=int(inputVal)
+            if (val<-1):#note: some flags have more restrictions
+                raise Exception("Value out of range")
+            return [val,val]
+    except ValueError:
+        pass
+    raise argparse.ArgumentTypeError("Invalid format (must be either an integer or an interval)")
+
 excludeMap = {"none":"0", "holes":"1", "strict-holes":"2"}
 #b2bMap = {"none":"0", "tetris":"1", "tspin":"2", "b2b":"3"}#later
-
 
 parser = argparse.ArgumentParser(description="Sfaster flags")
 
@@ -41,7 +65,7 @@ parser = argparse.ArgumentParser(description="Sfaster flags")
 parser.add_argument("inputBoard", nargs="?", default="", help="Input board string")
 parser.add_argument("-t", "--tetfu", help="Input board string")
 parser.add_argument("-M", "--mode", choices=["path","setup"], default="path", help="path (PCs) or setup (everything else)")
-parser.add_argument("-c", "--clear-line", type=int, choices=[-1]+list(range(1,11)), default=-1, help="Number of lines to clear (1-10)")
+parser.add_argument("-c", "--clear-line", type=parseInterval, default="-1", help="Number of lines to clear (1-10)")
 parser.add_argument("-H", "--hold", choices=["avoid", "use"], default="use",help="Hold piece preference")
 parser.add_argument("-p", "--patterns", type=str, metavar="eg: [SZT]p2,*p1,*!", help="Pattern string to parse")
 parser.add_argument("-s", "--split", choices=["yes", "no"], default="yes", help="Split preference")
@@ -55,9 +79,9 @@ parser.add_argument("-P", "--page", type=int, default=1, help="Which page of the
 #setup commands
 parser.add_argument("-f", "--fill", choices=["s","z","l","j","i","t","o","S","Z","L","J","I","T","O","cyan","cy","blue","bl","orange","or","yellow","ye","green","gr","red","re","purple","pu","none","F"], default="F", help="What minos to fill (color or \'F\')")
 parser.add_argument("-m", "--margin", choices=["s","z","l","j","i","t","o","S","Z","L","J","I","T","O","cyan","cy","blue","bl","orange","or","yellow","ye","green","gr","red","re","purple","pu","none","M"], default="M", help="What minos are optional (color or \'M\')")
-parser.add_argument("-np", "--n-pieces", type=str, default="", help="Number of pieces to place ([min,max] for a range)")
-parser.add_argument("-g", "--gaps", type=str, default="", help="Alternative to \"--n-pieces\", specifying number of gaps (unfilled minos) instead. ([min,max] for a range)")
-parser.add_argument("-e", "--exclude", choices=excludeMap.keys(), default="none", metavar="test", help="\"holes\" for no overhangs at all, \"strict-holes\" for no gaps with left+right blocked too, \"none\" for no restrictions")
+parser.add_argument("-np", "--n-pieces", type=parseInterval, default="-1", help="Number of pieces to place ([min,max] for a range)")
+parser.add_argument("-g", "--gaps", type=parseInterval, default="-1", help="Alternative to \"--n-pieces\", specifying number of gaps (unfilled minos) instead. ([min,max] for a range)")
+parser.add_argument("-e", "--exclude", choices=excludeMap.keys(), default="none", help="\"holes\" for no overhangs at all, \"strict-holes\" for no gaps with left+right blocked too, \"none\" for no restrictions")
 
 args = parser.parse_args()
 args.exclude = excludeMap[args.exclude]
@@ -70,10 +94,10 @@ if (args.mode=="path"):
     if (args.margin!="M"):
         print("Ignoring --margin")
         setupFlags=True
-    if (args.n_pieces!=""):
+    if (args.n_pieces!=[-1,-1]):
         print("Ignoring --n-pieces")
         setupFlags=True
-    if (args.gaps!=""):
+    if (args.gaps!=[-1,-1]):
         print("Ignoring --gaps")
         setupFlags=True
     if (args.exclude!="0"):
@@ -81,8 +105,18 @@ if (args.mode=="path"):
         setupFlags=True
     if setupFlags:
         print("(Include \"-M setup\" to use setup mode!)\n")
-
-lines = args.clear_line
+    if (args.clear_line[0]!=args.clear_line[1]):
+        raise Exception("Use \"-M setup\" for variable line clears")
+    if (args.clear_line[0]==0):
+        raise Exception("What is a 0 line PC?")
+    
+if (any(x not in range(-1,11) for x in args.clear_line)):
+    if (args.mode=="path"):
+        raise Exception("-c value must be in (1-10) or -1")
+    else:
+        raise Exception("-c values must be in (0-10) or -1")
+    
+lines = args.clear_line[1]#either max lines, or what the value was originally going to be lol
 if (lines==-1 and args.mode=="path"):
     lines=4
 
@@ -93,7 +127,7 @@ else:
 inputBoard = parseInputBoard(inputBoard,lines)
 
 if (lines==-1):#(and not path)
-    lines=len(inputBoard)//10
+    args.clear_line=[0,len(inputBoard)//10]#anything goes!
 
 if not args.patterns:
     pattern="*p1"*(5*lines//2 + 3)
@@ -103,10 +137,6 @@ else:
 hold = "false" if args.hold=="avoid" else "true"
 glue = "true" if args.split=="yes" else "false"
 convertToFumen = "true" if args.format_solution=="fumen" else "false"
-
-#load180Kicks = "" if args.drop[:4]=="soft" else "-Dload180Kicks="+args.drop#leaving it out entirely if not specified
-#harddrop = "true" if args.drop[:4]=="hard" else "false"#for the -B calls
-
 
 print("Board:")
 for i in range(0,len(inputBoard),10):
@@ -123,6 +153,8 @@ b2bReq = {"none":"0", "tetris":"1", "tspin":"2", "b2b":"3"}[args.b2b]
 
 if (args.mode=="setup"):
     print("NOTE: setup mode is new and still being tested")
+    lines=len(inputBoard)//10
+    clearMinMaxStr="{"+str(args.clear_line[0])+","+str(args.clear_line[1])+"}"
     if (args.fill==args.margin):
         raise Exception("Your --margin mino can't be the same as your --fill mino")
     if (args.turbo):#temporary (don't have it yet)
@@ -149,27 +181,20 @@ if (args.mode=="setup"):
             gapBitmap|=1<<i<<(i//10)
     emptyMinos=inputBoard.count(fillMino)+inputBoard.count(marginMino)
     gapMinMax=[0,emptyMinos]
-    if (args.n_pieces!=""):
-        if (args.n_pieces[0]!='['):
-            minPieces=int(args.n_pieces)
-            maxPieces=minPieces
-        else:
-            (minPieces,maxPieces)=(int(n) for n in args.n_pieces[1:-1].split(',',1))
+    if (args.n_pieces!=[-1,-1]):
+        (minPieces,maxPieces)=args.n_pieces
         gapMinMax[0]=emptyMinos-maxPieces*4
         gapMinMax[1]=emptyMinos-minPieces*4
-    if (args.gaps!=""):
-        if (args.gaps[0]!='['):
-            minGaps=int(args.gaps)
-            maxGaps=minGaps
-        else:
-            (minGaps,maxGaps)=(int(n) for n in args.gaps[1:-1].split(',',1))
-        if (args.n_pieces!=""):
+    if (args.gaps!=[-1,-1]):
+        (minGaps,maxGaps)=args.gaps
+        if (args.n_pieces!=[-1,-1]):
             if (gapMinMax[0]!=minGaps or gapMinMax[1]!=maxGaps):#if the arguments don't match
                 raise Exception("The --n-pieces and --gaps values are contradictory")
         else:
             gapMinMax[0]=minGaps
             gapMinMax[1]=maxGaps
     gapMinMaxStr="{"+str(gapMinMax[0])+","+str(gapMinMax[1])+"}"
+    #might be worth checking if possible min/max line clears (doesn't) overlap with args.clear_lines
 
 if (args.turbo and not args.big_input):#turbo_precompiled
     print("Bitmap created\nTurbo mode")
@@ -225,7 +250,7 @@ elif (args.big_input):#custom-compiled
     command=[compiler, "v4.1_demo.cpp", f"-DmaxLines={lines}", f"-Dboard=bitmap({bitmap&0xFFFFFFFFFFFFFFFF}llu,{bitmap>>64}llu)", f"-DpatternStr=\"{pattern}\"", f"-DallowHold={hold}", f"-Dglue={glue}", f"-DconvertToFumen={convertToFumen}", f"-Db2bReq={b2bReq}", f"-DoutPath=\"{args.output_base}\"", "-O3", "-std=c++11", "-o", "v4"]
     if (args.mode=="setup"):
         command[1]="v4.1_setup.cpp"
-        command.extend([f"-DgappableBoard=bitmap({gapBitmap&0xFFFFFFFFFFFFFFFF}llu,{gapBitmap>>64}llu)", "-DgapsInterval="+gapMinMaxStr, f"-DstartingGaps=bitmap({startingGaps&0xFFFFFFFFFFFFFFFF}llu,{startingGaps>>64}llu)", "-Dexclude="+args.exclude])
+        command.extend([f"-DgappableBoard=bitmap({gapBitmap&0xFFFFFFFFFFFFFFFF}llu,{gapBitmap>>64}llu)", "-DgapsInterval=std::array<int,2>"+gapMinMaxStr, f"-DstartingGaps=bitmap({startingGaps&0xFFFFFFFFFFFFFFFF}llu,{startingGaps>>64}llu)", "-Dexclude="+args.exclude, "-DclearInterval=std::array<int,2>"+clearMinMaxStr])
     if (args.drop[:4]=="hard"):#harddrop only
         command.append("-Dharddrop=true")
     elif (args.drop[:4]!="soft"):#adding 180 spins
@@ -263,7 +288,7 @@ else:#not-custom compiled
     elif (args.mode=="setup"):
         #print("testing precompiled setup")#
         command[0]="./v4_setup_precompiled"
-        command.extend([f"{gapBitmap&0xFFFFFFFFFFFFFFFF},{gapBitmap>>64}", gapMinMaxStr[1:-1], f"{startingGaps&0xFFFFFFFFFFFFFFFF},{startingGaps>>64}", args.exclude])
+        command.extend([f"{gapBitmap&0xFFFFFFFFFFFFFFFF},{gapBitmap>>64}", gapMinMaxStr[1:-1], f"{startingGaps&0xFFFFFFFFFFFFFFFF},{startingGaps>>64}", args.exclude, clearMinMaxStr[1:-1]])
 
     if (args.drop[:4]!="soft"):#adding harddrop or 180 spins
         command.append(args.drop)

@@ -76,6 +76,10 @@ using namespace std::chrono;
 #define exclude 0//0=none, 1=holes, 2=strict-holes
 #endif
 
+#ifndef clearInterval//min and max line clears in solution
+#define clearInterval std::array<int,2>{0,maxLines}
+#endif
+
 struct bitmap{
     unsigned long long val[2];
     bitmap() {}
@@ -703,7 +707,7 @@ void findSolutions(bitmap matrix, int tracer, std::array<std::list<piece>,10>& f
     if (matrix==bitmap(0xFFFFFFFFFFFFFFFFllu,0xFFFFFFFFFFFFFFFFllu)){//can't do matrix[1]==0xFFFFFFFFFFFFFFFFllu if maxLines<=4
         //solutions.push_back(pieceList);
         //printf("new solution\n");//
-        if ((!b2bReq || (b2bReq&b2b)) && checkSolution(pieceList)){
+        if ((!b2bReq || (b2bReq&b2b)) && __builtin_popcount(~gapRows&((1u<<maxLines)-1))<=clearInterval[1] && checkSolution(pieceList)){
             writeSolution(pieceList);//success
             solCount++;
         }
@@ -717,9 +721,12 @@ void findSolutions(bitmap matrix, int tracer, std::array<std::list<piece>,10>& f
     int col=tracer%11;
     char row=tracer/11;
     bool newRow=(saveTracer%11>col || tracer>=saveTracer+10);//not sure why i didn't just do (saveTracer/11 != row)
-    if (b2bReq && newRow){
-        if (!(b2bReq&b2b) && !(gapRows>>(row-1)&1)) return;//if line cleared and no b2b req met
-        b2b=0;
+    if (newRow){
+        if (b2bReq){
+            if (!(b2bReq&b2b) && !(gapRows>>(row-1)&1)) return;//if line cleared and no b2b req met
+            b2b=0;
+        }
+        if (__builtin_popcount(~gapRows&((1u<<row)-1))>clearInterval[1]) return;//if cleared too many lines
     }
     int rowStart=row*11;
     /*if (newRow && ((gappable>>rowStart)[0]&0x3FF)){//if not determined if gaps allowed on row 
@@ -754,7 +761,7 @@ void findSolutions(bitmap matrix, int tracer, std::array<std::list<piece>,10>& f
                 for (int i=1;(overflow>>i) && i+col<10;i++){
                     if ((overflow>>i&1) && fragments[i+col].size()){
                         if (gapRows>>row&1){//if row already has gaps
-                            overflow=-1u;//just don't make another flag var lol
+                            overflow=-1u;//just don't want to make another flag var lol
                             break;
                         }
                         gappable&=~(bitmap(0x3FF)<<rowStart);
@@ -1110,6 +1117,10 @@ void findSolutions(bitmap matrix, int tracer, std::array<std::list<piece>,10>& f
                 }
             }*/
             gapRows|=1<<row;//marking row as having gaps
+            if (maxLines-__builtin_popcount(gapRows&((1u<<maxLines)-1))<clearInterval[0]){//if can't do the minimum number of line clears
+                pieceList.pop_back();
+                return;
+            }
         }
         heights[col]++;
         pieceList.back().mat=(bitmap(0x1)<<tracer);

@@ -33,6 +33,7 @@ char exclude;
 //bitmap gappableBoard; (declared after struct bitmap)
 std::array<int,2>gapsInterval={0,0x7FFFFFFF};
 //bitmap startingGaps; (declared after struct bitmap)
+std::array<int,2>clearInterval={0,10};
 
 struct bitmap{
     unsigned long long val[2];
@@ -665,7 +666,7 @@ void findSolutions(bitmap matrix, int tracer, std::array<std::list<piece>,10>& f
     if (matrix==bitmap(0xFFFFFFFFFFFFFFFFllu,0xFFFFFFFFFFFFFFFFllu)){//can't do matrix[1]==0xFFFFFFFFFFFFFFFFllu if maxLines<=4
         //solutions.push_back(pieceList);
         //printf("new solution\n");//
-        if ((!b2bReq || (b2bReq&b2b)) && checkSolution(pieceList)){
+        if ((!b2bReq || (b2bReq&b2b)) && __builtin_popcount(~gapRows&((1u<<maxLines)-1))<=clearInterval[1] && checkSolution(pieceList)){
             writeSolution(pieceList);//success
             solCount++;
         }
@@ -679,9 +680,12 @@ void findSolutions(bitmap matrix, int tracer, std::array<std::list<piece>,10>& f
     int col=tracer%11;
     char row=tracer/11;
     bool newRow=(saveTracer%11>col || tracer>=saveTracer+10);//not sure why i didn't just do (saveTracer/11 != row)
-    if (b2bReq && newRow){
-        if (!(b2bReq&b2b) && !(gapRows>>(row-1)&1)) return;//if line cleared and no b2b req met
-        b2b=0;
+    if (newRow){
+        if (b2bReq){
+            if (!(b2bReq&b2b) && !(gapRows>>(row-1)&1)) return;//if line cleared and no b2b req met
+            b2b=0;
+        }
+        if (__builtin_popcount(~gapRows&((1u<<row)-1))>clearInterval[1]) return;//if cleared too many lines
     }
     int rowStart=row*11;
     /*if (newRow && ((gappable>>rowStart)[0]&0x3FF)){//if not determined if gaps allowed on row 
@@ -716,7 +720,7 @@ void findSolutions(bitmap matrix, int tracer, std::array<std::list<piece>,10>& f
                 for (int i=1;(overflow>>i) && i+col<10;i++){
                     if ((overflow>>i&1) && fragments[i+col].size()){
                         if (gapRows>>row&1){//if row already has gaps
-                            overflow=-1u;//just don't make another flag var lol
+                            overflow=-1u;//just don't want to make another flag var lol
                             break;
                         }
                         gappable&=~(bitmap(0x3FF)<<rowStart);
@@ -1072,6 +1076,10 @@ void findSolutions(bitmap matrix, int tracer, std::array<std::list<piece>,10>& f
                 }
             }*/
             gapRows|=1<<row;//marking row as having gaps
+            if (maxLines-__builtin_popcount(gapRows&((1u<<maxLines)-1))<clearInterval[0]){//if can't do the minimum number of line clears
+                pieceList.pop_back();
+                return;
+            }
         }
         heights[col]++;
         pieceList.back().mat=(bitmap(0x1)<<tracer);
@@ -1141,7 +1149,7 @@ void parsePattern(std::string pattern){
     inputPattern = patternNodes;
 }
 int main(int argc, char* argv[]) {//v4.1_compiled.exe board, pattern, maxLines, allowHold, glue, convertToFumen, b2bReq, outPath, load180Kicks
-    if (argc<13) return 1;//used to verify compiled file exists
+    if (argc<14) return 1;//used to verify compiled file exists
     int comma=0;//setting board
     while(argv[1][++comma]!=',');
     argv[1][comma++]=0;
@@ -1172,11 +1180,15 @@ int main(int argc, char* argv[]) {//v4.1_compiled.exe board, pattern, maxLines, 
     argv[11][comma++]=0;
     startingGaps = bitmap(strtoull(argv[11],nullptr,0),strtoull(argv[11]+comma,nullptr,0));
     exclude=argv[12][0]-'0';//setting exclude
-    if (argc==14){//setting kickTable180
-        if (argv[13][0]=='h') harddrop=true;
+    comma=0;//setting gapsInterval
+    while(argv[13][++comma]!=',');
+    argv[13][comma++]=0;
+    clearInterval = std::array<int,2>{(int)strtol(argv[13],nullptr,0),(int)strtol(argv[13]+comma,nullptr,0)};
+    if (argc==15){//setting kickTable180
+        if (argv[14][0]=='h') harddrop=true;
         else{
             enable180 = true;
-            if (argv[13][0]=='t') kickTable180 = tetrio180;//jstris180 by default
+            if (argv[14][0]=='t') kickTable180 = tetrio180;//jstris180 by default
         }
     }
 
@@ -1245,7 +1257,7 @@ int main(int argc, char* argv[]) {//v4.1_compiled.exe board, pattern, maxLines, 
     outFile << gapMinMax[0] << "," << gapMinMax[1] << std::endl;//
     outFile << std::hex << gappable[1] << std::hex << gappable[0] << std::endl;//
     outFile << std::hex << testMap[1] << std::hex << testMap[0] << std::endl;//*/
-
+    
     /*Timing findSolutions()*/
     auto timer1=high_resolution_clock::now();
     auto timer2=timer1;

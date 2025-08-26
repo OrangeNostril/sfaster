@@ -19,8 +19,7 @@ While the program is running, every solution will be written to `output.txt` as 
 
 Sfaster doesn't have some of the more niche flags in sfinder yet, but it currently implements the most common ones, with some changes:
 * `-p`, `--patterns` Piece order restrictions. If no pattern is specified, piece restrictions will not be considered.
-* `-c`, `--clear-line` Number of lines to clear. Defaults to 4.
-  * Currently ignored in `setup` mode, but soon will be used to specify min/max cleared lines allowed.
+* `-c`, `--clear-line` Number of lines to clear. For `setup` mode, may give an interval (eg: `[2,4]`). Defaults to 4 in `path` mode, or no restrictions in `setup` mode.
 * `-H`, `--hold` Whether to allow hold to be used. Specify `use` to allow, or `avoid` to disallow. Defaults to `use`.
 * `-d`, `--drop` Specify movement abilities (eg: enable 180 spins). Currently, the options are `soft` (or `softdrop`), `hard` (or `harddrop`), `jstris180`, or `tetris180`. To enable 180 spins with the 180 kick table for either jstris or tetr.io, choose `jstris180` or `tetrio180`, respectively.
     * Warning: the 180 kicktables use the same logic as the other kicktables, but they haven't been thoroughly tested yet.
@@ -44,11 +43,11 @@ Here are flags that only apply to `setup` mode:
 
 ### NEW AND UPCOMING FEATURES
 #### New features:
+* Can specify min/max line clears for `setup` mode now. Between this and the preexisting functionality, it can essentially do everything sfinder's `spin` mode can do now as well
 * `hard`/`harddrop` drop option (about 10-20% faster than `soft`/`softdrop` at the moment, will speed it up more later) 
 * Specify input fumen page (`-P`)
 * `setup` mode, with flexible piece/gap counts
 #### Coming soon:
-* Several small features and improvements to `setup` mode
 * Glued solutions (`-s`)
 * Option to get %s on solutions as they're found (like a built-in `cover`)
 * Also a regular `cover` mode
