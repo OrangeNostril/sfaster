@@ -17,7 +17,7 @@ You can specify the mode with the `-M` (or `--mode`) flag, specifying either `pa
 
 While the program is running, every solution will be written to `output.txt` (or another file if specified) as it is found. This means that the program requires very little memory to run regardless of input, and if the program stops early for any reason, the solutions found up to that point won't be lost. By default, the solutions will be written as fumens, but to have solutions printed as strings, add `-F string` to your command. Keep in mind that the output file can get very large if a large number of solutions are found.
 
-#### Setup Mode
+### Setup Mode
 Sfaster's `setup` mode works similarly to sfinder's `setup` mode, but with some significant improvements in certain areas, some of which gives it similar functionality to sfinder's `spin` mode as well.
 * Doesn't miss solutions where pieces need to be placed entirely in margin area before pieces placed in fill area
   * Currently, sfinder's version misses these solutions if pieces placed in the margin area open options for other pieces (eg: clears lines, other pieces stacking on top of it, etc.), but not solutions where the restriction is just because of the given pattern/piece sequence
@@ -27,6 +27,7 @@ Sfaster's `setup` mode works similarly to sfinder's `setup` mode, but with some 
 * Both the `-c` and `-np` (number of pieces placed) flags may be given as intervals, allowing solutions with varying numbers of pieces placed and/or lines cleared
 * Includes all the same functionality that Sfaster normally has, including the option to set b2b restrictions
 
+### Flags/Options
 Sfaster doesn't have some of the more niche flags in sfinder yet, but it currently implements the most common ones, with some changes:
 * `-p`, `--patterns` Piece order restrictions. If no pattern is specified, piece restrictions will not be considered.
 * `-c`, `--clear-line` Number of lines to clear. For `setup` mode, may give an interval (eg: `[2,4]`). Defaults to 4 in `path` mode, or no restrictions in `setup` mode.
@@ -35,7 +36,8 @@ Sfaster doesn't have some of the more niche flags in sfinder yet, but it current
     * Warning: the 180 kicktables use the same logic as the other kicktables, but they haven't been thoroughly tested yet.
 * `-P`, `--page` Which fumen page to use as the input. Ignored for string input. 
 * `-o`, `--output-base`, `--output-file`, `--output` Specify where the solutions should be written. Defaults to `"output.txt"`.
-Here are the flags unique to Sfinder:
+
+#### Flags unique to Sfaster:
 * `-F`, `--format-solution`, `--format-output`, Specify whether solutions should be written as fumens or strings. Choose `fumen` or `string`, defaults to `fumen`.
 * `-B`, `--big-input` Add this flag if you're processing a very large input (ie: many pieces). It should typically run faster, but will take a few seconds to recompile before it starts. Clang++/G++ is required to use this flag. Due to how compilers work, there's a chance this version could have a significantly different (faster or even slower) runtime than the default version.
 * `-T`, `--turbo` Run in Turbo mode: uses all the cores of your computer to run large inputs several times faster than normal. Works best if you don't have other programs open.
@@ -44,13 +46,13 @@ Here are the flags unique to Sfinder:
 * `-b`, `--b2b` Set b2b restrictions. Choose `"tetris"` to return solutions where the only clears are tetrises, `"tspin"` to return solutions where the only clears are tspins, `"b2b"` to return solutions where b2b is maintained (either tspins or tetrises), or `"none"` for no restrictions. Defaults to `"none"`.
     * Note that setting it to `"tspin"` guarantees no solutions in `path` mode since you can't tspin a PC.
 
-Here are flags that only apply to `setup` mode:
+#### Flags unique to `setup` mode:
 * `-f`, `--fill` Which mino must be filled. You can specify the mino by letter (eg: `Z`), by color (eg: `"cyan"` or `"cy"`), or you can choose `F` (for string inputs). Defaults to `F`.
     * Unlike in sfinder, you can run sfaster `setup` mode with no fill minos on the board at all!
 * `-m`, `--margin` Which mino may be filled. You can specify the mino by letter (eg: `Z`), by color (eg: `"cyan"` or `"cy"`), or you can choose `M` (for string inputs). Defaults to `M`.
-`-np`, `--n-pieces` How many pieces should be placed in the solution. You can specify a number, or you can give an interval (eg: `[0,3]`) to specify the minimum and maximum number of pieces allowed. If not specified (or `-1`), any number of pieces are allowed (including zero).
-`-g`, `--gaps` Alternative to `--n-pieces`, specifying number of gaps (unfilled minos) instead. You can specify a number, or you can give an interval (eg: `[12,20]`) to specify the minimum and maximum number of pieces allowed.
-`-e`, `--exclude` Select `"holes"` for no overhangs at all, `"strict-holes"` for no gaps with left+right blocked too, `"none"` for no restrictions. Defaults to `"none"`.
+* `-np`, `--n-pieces` How many pieces should be placed in the solution. You can specify a number, or you can give an interval (eg: `[0,3]`) to specify the minimum and maximum number of pieces allowed. If not specified (or `-1`), any number of pieces are allowed (including zero).
+* `-g`, `--gaps` Alternative to `--n-pieces`, specifying number of gaps (unfilled minos) instead. You can specify a number, or you can give an interval (eg: `[12,20]`) to specify the minimum and maximum number of pieces allowed.
+* `-e`, `--exclude` Select `"holes"` for no overhangs at all, `"strict-holes"` for no gaps with left+right blocked too, `"none"` for no restrictions. Defaults to `"none"`.
 
 ### NEW AND UPCOMING FEATURES
 #### New features:
