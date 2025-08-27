@@ -538,7 +538,7 @@ bool findPath(std::map<int,piece>& solution, bitmap matrix, int clearedRows, uns
     if (placedMap==(1llu<<solution.size())-1) return true;//if all pieces placed
 
     /*if (!(matrix==wall<<10)){//debug
-    /if (__builtin_popcountll(matrix[0])>6+4){//6 for empty (just wall)
+    //if (__builtin_popcountll(matrix[0])>6+4){//6 for empty (just wall)
         printf("pick %d from 0x%x, hold: 0x%x ",pattern->pick,pattern->from,hold->from);//debug
         printMatrix(matrix);//
         printf("");//
@@ -553,7 +553,7 @@ bool findPath(std::map<int,piece>& solution, bitmap matrix, int clearedRows, uns
         else if ((rowMask&matrix)==rowMask){//if only gray minos remaining on row
             bitmap lowerMask;
             if ((i-clearRowsPassed)*11>=64){
-                lowerMask=bitmap((unsigned long long)-1ll,(1llu<<(11*(i-clearRowsPassed)-64))-1);
+                lowerMask=bitmap((unsigned long long)-1llu,(1llu<<(11*(i-clearRowsPassed)-64))-1);
             }
             else{
                 lowerMask=bitmap((1llu<<11*(i-clearRowsPassed))-1,0);
@@ -755,16 +755,14 @@ void findSolutions(bitmap matrix, int tracer, std::array<std::list<piece>,10>& f
     std::array<int,maxLines> dependencyMapBackup = dependencyMap;
     std::array<int,maxLines> dependencyMapFlippedBackup = dependencyMapFlipped;
     for (auto it=fragments[col].begin();it!=fragments[col].end();it++){
-        if (!(matrix>>tracer & bitmap(it->mat) & 0x3FF)){//if overlaps gray minos ON THE SAME ROW
+        if (!(matrix>>tracer & bitmap(it->mat) & 0x3FF)){//if (not) overlaps gray minos ON THE SAME ROW
             if ((gappable>>rowStart)[0]&0x3FF){//if row can have gaps
-                unsigned overflow=it->mat[0]&0x3FE;
-                for (int i=1;(overflow>>i) && i+col<10;i++){
-                    if ((overflow>>i&1) && fragments[i+col].size()){
-                        if (gapRows>>row&1){//if row already has gaps
-                            overflow=-1u;//just don't want to make another flag var lol
-                            break;
-                        }
-                        gappable&=~(bitmap(0x3FF)<<rowStart);
+            unsigned overflow=it->mat[0]&0xE;//(&0x6 should also work)
+                for (int i=1;overflow>>i;i++){//check other columns this slice will be placed on
+                    if (fragments[i+col].size()){//if other fragments competing for space (aka, would have to skip this row)
+                        if (gapRows>>row&1) overflow=-1u;//if row already has gaps (making overflow a flag var for a sec lol)
+                        else gappable&=~(bitmap(0x3FF)<<rowStart);//can't place gaps on this row (other fragments skipping this row)
+                        break;
                     }
                 }
                 if (overflow==-1u) continue;//would force another fragment to skip this row (and row already has gaps)
@@ -775,7 +773,6 @@ void findSolutions(bitmap matrix, int tracer, std::array<std::list<piece>,10>& f
             auto saveSpot = next(it);
             //note: actually have to save the node
             std::list<piece> helper;
-            //TODO: special cases move node to new list instead of just copying?
             if (save.mat==bitmap(0x1003)){//special case: top of Zr1, Tr1
                 //it=fragments[col].erase(it);//it temporarily it.next()
                 helper.splice(helper.begin(),fragments[col],it);
@@ -844,7 +841,7 @@ void findSolutions(bitmap matrix, int tracer, std::array<std::list<piece>,10>& f
             pieceList.pop_back();
             return;
         }
-        gappable&=~bitmap(0x3FF)<<(11*row);//can't add gaps for at least 1 more row
+        gappable&=~bitmap(0x3FF)<<(11*row);//can't add gaps for at least 1 more row (aka current row)
     }
     
     pieceList.back().filledMap=1<<row;//origin=std::array<char,maxLines>{};
@@ -1205,6 +1202,11 @@ int main() {
     //printMatrix(testMap,12);//
     testMap|=playfield;//this means no more extra out of bounds minos
 
+    if (__builtin_popcountll(~testMap[0])+__builtin_popcountll(~testMap[1])<gapsInterval[0]){//literally not enough room to place the min req gaps
+        printf("0 us\n0 solutions\n");
+        return 0;
+    }
+
     std::array<std::list<piece>,10> fragments;
     std::vector<piece> pieceList;
     std::vector< std::vector<piece> > solutions;
@@ -1258,7 +1260,7 @@ int main() {
     /*outFile << std::hex << gapRows << std::endl;//
     outFile << gapMinMax[0] << "," << gapMinMax[1] << std::endl;//
     outFile << std::hex << gappable[1] << std::hex << gappable[0] << std::endl;// 
-    outFile << std::bitset<64>(gappable[1]) << std::bitset<64>(gappable[0]) << std::endl;//*/
+    outFile << std::hex << testMap[1] << std::hex << testMap[0] << std::endl;//*/
 
     /*Timing findSolutions()*/
     auto timer1=high_resolution_clock::now();

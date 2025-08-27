@@ -64,7 +64,7 @@ parser = argparse.ArgumentParser(description="Sfaster flags")
 #everything commands
 parser.add_argument("inputBoard", nargs="?", default="", help="Input board string")
 parser.add_argument("-t", "--tetfu", help="Input board string")
-parser.add_argument("-M", "--mode", choices=["path","setup"], default="path", help="path (PCs) or setup (everything else)")
+parser.add_argument("-M", "--mode", type=(lambda x:x.lower()), choices=["path","setup"], default="path", help="path (PCs) or setup (everything else)")
 parser.add_argument("-c", "--clear-line", type=parseInterval, default="-1", help="Number of lines to clear (1-10)")
 parser.add_argument("-H", "--hold", choices=["avoid", "use"], default="use",help="Hold piece preference")
 parser.add_argument("-p", "--patterns", type=str, metavar="(eg: [SZT]p2,*p1,*!)", help="Pattern string to parse")
