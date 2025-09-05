@@ -479,6 +479,11 @@ bool findPath(std::map<int,piece>& solution, bitmap matrix, int clearedRows, uns
         printf("");//
     }*/
 
+    unsigned long long dpID = hold->from | pattern->from<<7 | placedMap<<14;
+    //if (placedMapDP.find(dpID)!=placedMapDP.end()) return false;//got here before, didn't succeed (before I wasn't updating hold/from when testing keys... oops)
+    //placedMapDP.insert(dpID);//moved from end, just in case
+    if (!placedMapDP.insert(dpID).second) return false;//faster way to do the two above lines
+
     bitmap rowMask=0x3FF;
     int clearRowsPassed=0;//to help keep clearedRows consistent
     for (int i=0;i<maxLines;i++){//clear filled lines
@@ -503,12 +508,10 @@ bool findPath(std::map<int,piece>& solution, bitmap matrix, int clearedRows, uns
         }
     }
     
-    unsigned long long dpID = hold->from | pattern->from<<7 | placedMap<<14;
     int counter=0;
     for (auto it=solution.begin();it!=solution.end();it++,counter++){
         if (!((1<<(it->second.id&0xFF))&(pattern->from|hold->from))) continue;//if breaks piece order requirements
         if (placedMap>>counter&1) continue;//piece already placed
-        if (placedMapDP.find(dpID|1llu<<(counter+14))!=placedMapDP.end()) continue;//already tried combination
         if ((it->second.filledMap&clearedRows)!=it->second.filledMap) continue;//if it skips any lines that haven't been cleared yet
 
         char piece=it->second.id&0xFF;
@@ -577,7 +580,6 @@ bool findPath(std::map<int,piece>& solution, bitmap matrix, int clearedRows, uns
         }
     }
 
-    placedMapDP.insert(dpID);
     return false;
 }
 

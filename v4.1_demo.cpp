@@ -55,7 +55,7 @@ using namespace std::chrono;
 #define b2bReq 0
 #endif
 
-#ifndef harddrop //harddrop only (no softdrop, no spins, etc.)
+#ifndef harddrop//harddrop only (no softdrop, no spins, etc.)
 #define harddrop false
 #endif
 
@@ -478,6 +478,11 @@ bool findPath(std::map<int,piece>& solution, bitmap matrix, int clearedRows, uns
         printMatrix(matrix);//
         printf("");//
     }*/
+   
+    unsigned long long dpID = hold->from | pattern->from<<7 | placedMap<<14;
+    //if (placedMapDP.find(dpID)!=placedMapDP.end()) return false;//got here before, didn't succeed (before I wasn't updating hold/from when testing keys... oops)
+    //placedMapDP.insert(dpID);//moved from end, just in case
+    if (!placedMapDP.insert(dpID).second) return false;//faster way to do the two above lines
 
     bitmap rowMask=0x3FF;
     int clearRowsPassed=0;//to help keep clearedRows consistent
@@ -503,12 +508,10 @@ bool findPath(std::map<int,piece>& solution, bitmap matrix, int clearedRows, uns
         }
     }
     
-    unsigned long long dpID = hold->from | pattern->from<<7 | placedMap<<14;
     int counter=0;
     for (auto it=solution.begin();it!=solution.end();it++,counter++){
         if (!((1<<(it->second.id&0xFF))&(pattern->from|hold->from))) continue;//if breaks piece order requirements
         if (placedMap>>counter&1) continue;//piece already placed
-        if (placedMapDP.find(dpID|1llu<<(counter+14))!=placedMapDP.end()) continue;//already tried combination
         if ((it->second.filledMap&clearedRows)!=it->second.filledMap) continue;//if it skips any lines that haven't been cleared yet
 
         char piece=it->second.id&0xFF;
@@ -577,7 +580,6 @@ bool findPath(std::map<int,piece>& solution, bitmap matrix, int clearedRows, uns
         }
     }
 
-    placedMapDP.insert(dpID);
     return false;
 }
 
@@ -1005,7 +1007,7 @@ void parsePattern(){
     for (int i=0;i<pattern.size();i++){
         char c=pattern[i];
         if (c==',') continue;//bad inputs like *p,7 still accounted for
-        auto charBit = pieceBits.find(c);
+        auto charBit = pieceBits.find(c&~32);//&~32 to accept ijlostz
         if (charBit!=pieceBits.end()){
             if (!inBrackets) patternNodes.push_back(patternNode(charBit->second,1));
             else if (nodeMap&charBit->second) throw std::runtime_error("Error: Duplicate pieces in brackets in pattern input");
@@ -1113,7 +1115,3 @@ int main() {
     //printf("Exiting...\n");//
     return 0;
 }
-/*
-Found 15,829,458 solutions in 43:06s
-Found 1,343,739 solutions in 57:04s
-*/
