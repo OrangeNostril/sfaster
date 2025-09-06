@@ -36,6 +36,8 @@ Sfaster doesn't have some of the more niche flags in sfinder yet, but it current
     * Warning: the 180 kicktables use the same logic as the other kicktables, but they haven't been thoroughly tested yet.
 * `-P`, `--page` Which fumen page to use as the input. Ignored for string input. 
 * `-o`, `--output-base`, `--output-file`, `--output` Specify where the solutions should be written. Defaults to `"output.txt"`.
+* `-s`, `--split`, `--glue` Whether to glue solutions in the output, either `yes` or `no`. Defaults to `no`.
+    * Experimental setting, currently not compatable with `-T` or `-M setup` until after more rigorous testing.
 
 #### Flags unique to Sfaster:
 * `-F`, `--format-solution`, `--format-output`, Specify whether solutions should be written as fumens or strings. Choose `fumen` or `string`, defaults to `fumen`.
@@ -56,12 +58,13 @@ Sfaster doesn't have some of the more niche flags in sfinder yet, but it current
 
 ### NEW AND UPCOMING FEATURES
 #### New features:
+* Glued solutions (`-s`)
 * Can specify min/max line clears for `setup` mode now. Between this and the preexisting functionality, it can essentially do everything sfinder's `spin` mode can do now as well
 * `hard`/`harddrop` drop option (about 10-20% faster than `soft`/`softdrop` at the moment, will speed it up more later) 
 * Specify input fumen page (`-P`)
 * `setup` mode, with flexible piece/gap counts
 #### Coming soon:
-* Glued solutions (`-s`)
+* v4.2! More versatile UI, bulk inputs (eg: 1000+ input boards), large speed increases (especially in `setup` mode), turbo in `setup` mode, complete file restructuring
 * Option to get %s on solutions as they're found (like a built-in `cover`)
 * Also a regular `cover` mode
 * Version to run many boards back to back (eg: every page in fumen)

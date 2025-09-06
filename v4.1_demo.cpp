@@ -37,7 +37,7 @@ using namespace std::chrono;
 #define allowHold true
 #endif
 
-#ifndef glue//not yet used
+#ifndef glue
 #define glue false
 #endif
 
@@ -57,6 +57,10 @@ using namespace std::chrono;
 
 #ifndef harddrop//harddrop only (no softdrop, no spins, etc.)
 #define harddrop false
+#endif
+
+#ifndef findPercent//get % of each PC happening
+#define findPercent true
 #endif
 
 struct bitmap{
@@ -182,23 +186,134 @@ void writeFumen(std::string solStr){//converts str to fumen and writes to file
     if (data.back()[0]==8) data.back()[1]+=10;//extra empty row at end
     else data.push_back(std::array<int,2>{8,9});
 
-    static const std::array<std::string,64> code = {"A","B","C","D","E","F","G","H","I","J","K","L","M","N","O","P","Q","R","S","T","U","V","W","X","Y","Z","a","b","c","d","e","f","g","h","i","j","k","l","m","n","o","p","q","r","s","t","u","v","w","x","y","z","0","1","2","3","4","5","6","7","8","9","+","/"}; 
+    //static const std::array<std::string,64> code = {"A","B","C","D","E","F","G","H","I","J","K","L","M","N","O","P","Q","R","S","T","U","V","W","X","Y","Z","a","b","c","d","e","f","g","h","i","j","k","l","m","n","o","p","q","r","s","t","u","v","w","x","y","z","0","1","2","3","4","5","6","7","8","9","+","/"}; 
+    constexpr char code[64]={'A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z','a','b','c','d','e','f','g','h','i','j','k','l','m','n','o','p','q','r','s','t','u','v','w','x','y','z','0','1','2','3','4','5','6','7','8','9','+','/'};
     std::string outFumen = "v115@";
-    int count=5;//need to insert a ? every 47 chars i guess
     for (auto& d : data){
         int num = 240*d[0]+d[1];
-        outFumen.append(code[num&0x3F]);//%64
-        if (outFumen.size()%47==0) outFumen.append("?");
-        outFumen.append(code[num>>6]);// /64
-        if (outFumen.size()%47==0) outFumen.append("?");
+        outFumen.push_back(code[num&0x3F]);//%64
+        if (outFumen.size()%48==47) outFumen.push_back('?');
+        outFumen.push_back(code[num>>6]);// /64
+        if (outFumen.size()%48==47) outFumen.push_back('?');
     }
-    //outFumen.append("AgH");//using the right piece color system
-    outFumen.append("A");
-    if (outFumen.size()%47==0) outFumen.append("?");
-    outFumen.append("g");
-    if (outFumen.size()%47==0) outFumen.append("?");
-    outFumen.append("H");
-    if (outFumen.size()%47==0) outFumen.append("?");//fumen website does this
+    //outFumen.push_back("AgH");//using the right piece color system
+    outFumen.push_back('A');
+    if (outFumen.size()%48==47) outFumen.push_back('?');
+    outFumen.push_back('g');
+    if (outFumen.size()%48==47) outFumen.push_back('?');
+    outFumen.push_back('H');
+    if (outFumen.size()%48==47) outFumen.push_back('?');//fumen website does this
+
+    if (outFile.is_open()){
+        outFile << outFumen << '\n';
+    }
+    else{
+        throw std::runtime_error("Error writing to output file.");
+    }
+}
+std::vector<int> validPath;//probably only a global for now (still testing)
+void writeGlued(/*std::vector<int> validPath*/){//converts piece IDs to glued fumen and writes to file
+    //static const std::array<std::string,64> code = {"A","B","C","D","E","F","G","H","I","J","K","L","M","N","O","P","Q","R","S","T","U","V","W","X","Y","Z","a","b","c","d","e","f","g","h","i","j","k","l","m","n","o","p","q","r","s","t","u","v","w","x","y","z","0","1","2","3","4","5","6","7","8","9","+","/"}; 
+    constexpr char code[64]={'A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z','a','b','c','d','e','f','g','h','i','j','k','l','m','n','o','p','q','r','s','t','u','v','w','x','y','z','0','1','2','3','4','5','6','7','8','9','+','/'};
+    static std::string baseFumen = "";
+    if (baseFumen==""){//init first time
+        //first, clearing all-gray lines from starting board        
+        bitmap matrix=board;
+        bitmap rowMask=0x3FF;
+        int clearRowsPassed=0;//to help keep clearedRows consistent
+        for (int i=0;i<maxLines;i++){//taken from findPath(), can probably be improved but w/e
+            if ((rowMask&matrix)==rowMask){//if only gray minos remaining on row
+                bitmap lowerMask;
+                if ((i-clearRowsPassed)*11>=64){
+                    lowerMask=bitmap((unsigned long long)-1ll,(1llu<<(11*(i-clearRowsPassed)-64))-1);
+                }
+                else{
+                    lowerMask=bitmap((1llu<<11*(i-clearRowsPassed))-1,0);
+                }
+                matrix&=~rowMask;
+                matrix=(matrix&lowerMask)|(matrix&~lowerMask)>>11|wall<<10;
+                clearRowsPassed++;
+            }
+            else{//if current line was not (just nor ever) cleared
+                rowMask<<=11;
+            }
+        }
+        std::vector<std::array<int,2>> data;
+        data.push_back(std::array<int,2>{8,229-maxLines*10});//empty rows before solution
+        int tracer = 11*(maxLines-1);
+        while (tracer >= 0){
+            int mapped=(matrix(tracer)?16:8);//'X' or '_'
+            if (mapped==data.back()[0]) data.back()[1]++;
+            else data.push_back(std::array<int,2>{mapped,0});
+            tracer = ((tracer + 2) % 11 ? tracer + 1 : tracer - 20);
+        }
+        if (data.back()[0]==8) data.back()[1]+=10;//extra empty row at end
+        else data.push_back(std::array<int,2>{8,9});
+
+        baseFumen = "v115@";
+        for (auto& d : data){
+            int num = 240*d[0]+d[1];
+            baseFumen.push_back(code[num&0x3F]);//%64
+            if (baseFumen.size()%48==47) baseFumen.push_back('?');
+            baseFumen.push_back(code[num>>6]);// /64
+            if (baseFumen.size()%48==47) baseFumen.push_back('?');
+        }
+        //outFile << "baseFumen: " << baseFumen << '\n';//
+    }
+
+    std::string outFumen=baseFumen;
+    //sfaster IJLOSTZ_ => fumen _ILOZTJS
+    static const std::map<int,std::array<int,2>> rotPieceCode={//piece and srsRot to fumen's encoding, also how to adjust pos
+        {0,{1,1}}//Ir0
+        ,{1<<8,{1|1<<3,22}}//Ir1
+        ,{1,{6|2<<3,1}}//Jr0
+        ,{1|1<<8,{6|1<<3,11}}//Jr1
+        ,{1|2<<8,{6,10}}//Jr2
+        ,{1|3<<8,{6|3<<3,12}}//Jr3
+        ,{2,{2|2<<3,1}}//Lr0
+        ,{2|1<<8,{2|1<<3,11}}//Lr1
+        ,{2|2<<8,{2,12}}//Lr2
+        ,{2|3<<8,{2|3<<3,11}}//Lr3
+        ,{3,{3,11}}//Or0
+        ,{4,{7,12}}//Sr0
+        ,{4|1<<8,{7|1<<3,11}}//Sr1
+        ,{5,{5|2<<3,1}}//Tr0
+        ,{5|1<<8,{5|1<<3,11}}//Tr1
+        ,{5|2<<8,{5,11}}//Tr2
+        ,{5|3<<8,{5|3<<3,11}}//Tr3
+        ,{6,{4,11}}//Zr0
+        ,{6|1<<8,{4|1<<3,11}}//Zr1
+    };
+    for (auto id=validPath.rbegin();id!=validPath.rend();id++){//validPath was filled in backwards
+        auto& temp=rotPieceCode.find(*id&0x3FF)->second;//{rotPiece,tracer adjust to srs center}
+        int rotPiece=temp[0];//encoding rot and piece with fumen's only-slightly-different system
+        int tracer=(*id>>10)+temp[1];
+        int row=tracer/11;//coords of srs center
+        int col=tracer%11;
+        int pos=220-10*row+col;//for fumen: TL is 0, TR is 9, BL is 220, BR is 229
+        
+        int num=rotPiece|pos<<5;
+        if (id==validPath.rbegin()){
+            num+=30720;//flag_color (use srs colors)
+        }
+        //num+=61440;//flag_comment
+        //num+=122880;//flag_lock (allow floating pieces?)
+        outFumen.push_back(code[num&0x3F]);//%64
+        if (outFumen.size()%48==47) outFumen.push_back('?');
+        outFumen.push_back(code[num>>6&0x3F]);// /64%64
+        if (outFumen.size()%48==47) outFumen.push_back('?');
+        outFumen.push_back(code[num>>12]);// /64/64
+        if (outFumen.size()%48==47) outFumen.push_back('?');
+        
+        if (id==validPath.rbegin() && validPath.size()>1){//just first time
+            outFumen.push_back('v');//%64
+            if (outFumen.size()%48==47) outFumen.push_back('?');
+            outFumen.push_back('h');// /64%64
+            if (outFumen.size()%48==47) outFumen.push_back('?');
+            outFumen.push_back(code[validPath.size()-2]);
+            if (outFumen.size()%48==47) outFumen.push_back('?');
+        }
+    }
 
     if (outFile.is_open()){
         outFile << outFumen << '\n';
@@ -470,10 +585,13 @@ std::vector<patternNode> inputPattern;//set at the start of the program
 //note: maybe in the future, it->second.mat can be a map of mats for different combinations of line clears
 //bigger note: rn placedMapDP is interfering with bags (leaving out some solutions)
 bool findPath(std::map<int,piece>& solution, bitmap matrix, int clearedRows, unsigned long long placedMap, std::set<unsigned long long>& placedMapDP, const std::vector<patternNode>::iterator& pattern,const std::vector<patternNode>::iterator& hold){
-    if (placedMap==(1llu<<solution.size())-1) return true;//if all pieces placed
+    if (placedMap==(1llu<<solution.size())-1){//if all pieces placed
+        if (glue) validPath.clear();
+        return true;
+    }
 
     /*if (!(matrix==wall<<10)){//debug
-    /if (__builtin_popcountll(matrix[0])>6+4){//6 for empty (just wall)
+    //if (__builtin_popcountll(matrix[0])>6+4){//6 for empty (just wall)
         printf("pick %d from 0x%x, hold: 0x%x ",pattern->pick,pattern->from,hold->from);//debug
         printMatrix(matrix);//
         printf("");//
@@ -493,7 +611,7 @@ bool findPath(std::map<int,piece>& solution, bitmap matrix, int clearedRows, uns
         else if ((rowMask&matrix)==rowMask){//if only gray minos remaining on row
             bitmap lowerMask;
             if ((i-clearRowsPassed)*11>=64){
-                lowerMask=bitmap((unsigned long long)-1ll,(1llu<<(11*(i-clearRowsPassed)-64))-1);
+                lowerMask=bitmap((unsigned long long)-1llu,(1llu<<(11*(i-clearRowsPassed)-64))-1);
             }
             else{
                 lowerMask=bitmap((1llu<<11*(i-clearRowsPassed))-1,0);
@@ -562,19 +680,26 @@ bool findPath(std::map<int,piece>& solution, bitmap matrix, int clearedRows, uns
             || (startShifts[it->second.id&0x3FF].size()==2 && unplace(piece,srsRot+2,pos+startShifts[it->second.id&0x3FF][1],matrix))
         ){//if can be placed
             pattern->pick--;
+            bool success=false;
             if (pattern!=hold && (1<<piece&hold->from)){//if in hold (and hold isn't from same patternNode)
                 if (pattern->pick==0){//taking last from patternNode
-                    if (findPath(solution,matrix|adjusted,clearedRows,placedMap|1llu<<counter,placedMapDP,next(pattern),pattern)) return true;
+                    if (findPath(solution,matrix|adjusted,clearedRows,placedMap|1llu<<counter,placedMapDP,next(pattern),pattern)) success=true;
                 }
-                else if (findPath(solution,matrix|adjusted,clearedRows,placedMap|1llu<<counter,placedMapDP,pattern,pattern)) return true;
+                else if (findPath(solution,matrix|adjusted,clearedRows,placedMap|1llu<<counter,placedMapDP,pattern,pattern)) success=true;
             }
-            if (1<<piece&pattern->from){//if in pattern
+            if (!success && (1<<piece&pattern->from)){//if in pattern
                 pattern->from^=1<<piece;//also removes from hold if hold is same patternNode
                 if (pattern->pick==0){//used last from node
-                    if (findPath(solution,matrix|adjusted,clearedRows,placedMap|1llu<<counter,placedMapDP,next(pattern),hold)) return true;
+                    if (findPath(solution,matrix|adjusted,clearedRows,placedMap|1llu<<counter,placedMapDP,next(pattern),hold)) success=true;
                 }
-                else if (findPath(solution,matrix|adjusted,clearedRows,placedMap|1llu<<counter,placedMapDP,pattern,hold)) return true;
+                else if (findPath(solution,matrix|adjusted,clearedRows,placedMap|1llu<<counter,placedMapDP,pattern,hold)) success=true;
                 pattern->from^=1<<piece;
+            }
+            if (success){
+                if (glue){
+                    validPath.push_back(pos<<10|(it->second.id&0x3FF));//pos updated with cleared lines
+                }
+                return true;
             }
             pattern->pick++;
         }
@@ -637,7 +762,8 @@ void findSolutions(bitmap matrix, int tracer, std::array<std::list<piece>,10>& f
         //solutions.push_back(pieceList);
         //printf("new solution\n");//
         if ((!b2bReq || (b2bReq&b2b)) && checkSolution(pieceList)){
-            writeSolution(pieceList);//success
+            if (glue) writeGlued();//success
+            else writeSolution(pieceList);//success
             solCount++;
         }
         return;

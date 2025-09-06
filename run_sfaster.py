@@ -20,7 +20,7 @@ def parseInputBoard(inputBoard:str,lines:int)->str:
                     from py_fumen.decoder import decode
                     inputBoard = decode(inputBoard)[args.page-1].get_field().string()[:-11]
                 except ModuleNotFoundError:
-                    raise Exception("Please install either py_fumen or py_fumen_py before inputting fumens")
+                    raise Exception("Please install either py_fumen_py or py_fumen before inputting fumens")
         except IndexError:#except from either py_fumen_py or py_fumen
             raise Exception("Page out of range")
     inputBoard=inputBoard.replace("\n","")#remove line breaks
@@ -68,7 +68,7 @@ parser.add_argument("-M", "--mode", type=(lambda x:x.lower()), choices=["path","
 parser.add_argument("-c", "--clear-line", type=parseInterval, default="-1", help="Number of lines to clear (1-10)")
 parser.add_argument("-H", "--hold", choices=["avoid", "use"], default="use",help="Hold piece preference")
 parser.add_argument("-p", "--patterns", type=str, metavar="(eg: [SZT]p2,*p1,*!)", help="Pattern string to parse")
-parser.add_argument("-s", "--split", choices=["yes", "no"], default="yes", help="Split preference")
+parser.add_argument("-s", "--split", "--glue", choices=["yes", "no"], default="no", help="Split preference (aka: glue solutions?)")#experimental
 parser.add_argument("-d", "--drop", choices=["soft","softdrop","hard","harddrop","jstris180", "tetrio180"], default="soft", help="Specify movement abilities")
 parser.add_argument("-o", "--output-base", "--output-file", "--output", default="output.txt", help="Specify program output destination")
 parser.add_argument("-F", "--format-solution", "--format-output", choices=["fumen", "string", "str"], default="fumen", help="Format of each solution")
@@ -85,6 +85,13 @@ parser.add_argument("-e", "--exclude", choices=excludeMap.keys(), default="none"
 
 args = parser.parse_args()
 args.exclude = excludeMap[args.exclude]
+
+if (args.split=="yes"):#temporary
+    if (args.mode=="setup"):
+        raise Exception("Setup mode can't currently glue solutions (coming soon)")
+    if (args.turbo):
+        raise Exception("Turbo not yet compatable with glue (coming soon)")
+    print("Note: glued output is currently experimental and largely untested")
 
 if (args.mode=="path"):
     setupFlags=False
@@ -116,7 +123,7 @@ if (any(x not in range(-1,11) for x in args.clear_line)):
     else:
         raise Exception("-c values must be in (0-10) or -1")
     
-lines = args.clear_line[1]#either max lines, or what the value was originally going to be lol
+lines = args.clear_line[1]#either max lines, or... what the value was originally going to be lol
 if (lines==-1 and args.mode=="path"):
     lines=4
 
@@ -128,6 +135,7 @@ inputBoard = parseInputBoard(inputBoard,lines)
 
 if (lines==-1):#(and not path)
     args.clear_line=[0,len(inputBoard)//10]#anything goes!
+    lines=args.clear_line[1]#just for default pattern atm
 
 if not args.patterns:
     pattern="*p1"*(5*lines//2 + 3)
@@ -137,6 +145,10 @@ else:
 hold = "false" if args.hold=="avoid" else "true"
 glue = "true" if args.split=="yes" else "false"
 convertToFumen = "true" if args.format_solution=="fumen" else "false"
+if (convertToFumen=="false" and glue=="true"):
+    #convertToFumen = "true"
+    #print("Assuming \"--format-solution string\"")
+    raise Exception("Can't glue string outputs")#neither are default args, so not overriding what they set
 
 print("Board:")
 for i in range(0,len(inputBoard),10):
@@ -223,7 +235,7 @@ elif (args.turbo):#turbo mode (custom compiled)
     except FileNotFoundError:
         raise Exception("Please install G++ before using the -T flag with -B")
     
-    command=[compiler, "-fopenmp", "v4.1_turbo.cpp", f"-DmaxLines={lines}", f"-Dboard=bitmap({bitmap&0xFFFFFFFFFFFFFFFF}llu,{bitmap>>64}llu)", f"-DpatternStr=\"{pattern}\"", f"-DallowHold={hold}", f"-Dglue={glue}", f"-DconvertToFumen={convertToFumen}", f"-Db2bReq={b2bReq}", f"-DoutPath=\"{args.output_base}\"", "-O3", "-std=c++11", "-o", "v4"]
+    command=[compiler, "-fopenmp", "v4.1_turbo.cpp", "-march=native", "-mtune=native", f"-DmaxLines={lines}", f"-Dboard=bitmap({bitmap&0xFFFFFFFFFFFFFFFF}llu,{bitmap>>64}llu)", f"-DpatternStr=\"{pattern}\"", f"-DallowHold={hold}", f"-Dglue={glue}", f"-DconvertToFumen={convertToFumen}", f"-Db2bReq={b2bReq}", f"-DoutPath=\"{args.output_base}\"", "-O3", "-std=c++11", "-o", "v4"]
     if (args.drop[:4]=="hard"):#harddrop only
         command.append("-Dharddrop=true")
     elif (args.drop[:4]!="soft"):#adding 180 spins
@@ -247,7 +259,7 @@ elif (args.big_input):#custom-compiled
             print("Using G++")#
         except FileNotFoundError:
             raise Exception("Please install either Clang++ or G++ before using the -B flag")
-    command=[compiler, "v4.1_demo.cpp", f"-DmaxLines={lines}", f"-Dboard=bitmap({bitmap&0xFFFFFFFFFFFFFFFF}llu,{bitmap>>64}llu)", f"-DpatternStr=\"{pattern}\"", f"-DallowHold={hold}", f"-Dglue={glue}", f"-DconvertToFumen={convertToFumen}", f"-Db2bReq={b2bReq}", f"-DoutPath=\"{args.output_base}\"", "-O3", "-std=c++11", "-o", "v4"]
+    command=[compiler, "v4.1_demo.cpp", "-march=native", "-mtune=native", f"-DmaxLines={lines}", f"-Dboard=bitmap({bitmap&0xFFFFFFFFFFFFFFFF}llu,{bitmap>>64}llu)", f"-DpatternStr=\"{pattern}\"", f"-DallowHold={hold}", f"-Dglue={glue}", f"-DconvertToFumen={convertToFumen}", f"-Db2bReq={b2bReq}", f"-DoutPath=\"{args.output_base}\"", "-O3", "-std=c++11", "-o", "v4"]
     if (args.mode=="setup"):
         command[1]="v4.1_setup.cpp"
         command.extend([f"-DgappableBoard=bitmap({gapBitmap&0xFFFFFFFFFFFFFFFF}llu,{gapBitmap>>64}llu)", "-DgapsInterval=std::array<int,2>"+gapMinMaxStr, f"-DstartingGaps=bitmap({startingGaps&0xFFFFFFFFFFFFFFFF}llu,{startingGaps>>64}llu)", "-Dexclude="+args.exclude, "-DclearInterval=std::array<int,2>"+clearMinMaxStr])
@@ -296,7 +308,8 @@ else:#not-custom compiled
 
 if (output.stderr!=b''):
     raise Exception("Program error:\n\t"+output.stderr.decode())
-#print(output.stdout.decode()+"\n")#debug
+print(output.stdout.decode()+"\n")#debug
+exit()#
 
 data=output.stdout.decode().split('\n')
 seconds=int(data[0][:-3])/1e6
